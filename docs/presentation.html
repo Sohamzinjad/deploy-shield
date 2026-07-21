@@ -1,0 +1,667 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DeployShield — Project Presentation</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-dark: #07090e;
+      --bg-card: #0f172a;
+      --bg-card-border: #1e293b;
+      --accent-indigo: #6366f1;
+      --accent-cyan: #38bdf8;
+      --accent-rose: #f43f5e;
+      --accent-emerald: #10b981;
+      --accent-amber: #f59e0b;
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --font-sans: 'Inter', system-ui, sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background-color: var(--bg-dark);
+      color: var(--text-main);
+      font-family: var(--font-sans);
+      overflow: hidden;
+      height: 100vh;
+      width: 100vw;
+      user-select: none;
+    }
+
+    /* Top Progress Bar */
+    .progress-container {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 4px;
+      background: rgba(255, 255, 255, 0.05);
+      z-index: 1000;
+    }
+    .progress-bar {
+      height: 100%;
+      background: linear-gradient(90deg, var(--accent-indigo), var(--accent-cyan));
+      width: 10%;
+      transition: width 0.3s ease;
+    }
+
+    /* Navigation Controls */
+    .nav-header {
+      position: fixed;
+      top: 1.5rem;
+      left: 2rem;
+      right: 2rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      z-index: 100;
+    }
+    .brand-logo {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-weight: 700;
+      font-size: 1.1rem;
+    }
+    .brand-badge {
+      background: rgba(99, 102, 241, 0.15);
+      border: 1px solid rgba(99, 102, 241, 0.3);
+      color: var(--accent-cyan);
+      font-size: 0.75rem;
+      padding: 0.2rem 0.6rem;
+      border-radius: 99px;
+      font-family: var(--font-mono);
+    }
+    .slide-counter {
+      font-family: var(--font-mono);
+      font-size: 0.85rem;
+      color: var(--text-muted);
+    }
+
+    .nav-footer {
+      position: fixed;
+      bottom: 1.5rem;
+      left: 2rem;
+      right: 2rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      z-index: 100;
+    }
+    .btn-nav {
+      background: var(--bg-card);
+      border: 1px solid var(--bg-card-border);
+      color: var(--text-main);
+      padding: 0.5rem 1.2rem;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: 500;
+      font-size: 0.9rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      transition: all 0.2s ease;
+    }
+    .btn-nav:hover {
+      background: #1e293b;
+      border-color: var(--accent-indigo);
+      color: #fff;
+    }
+    .keyboard-hint {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      font-family: var(--font-mono);
+    }
+
+    /* Slides Deck */
+    .deck-container {
+      width: 100%;
+      height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 5rem 2rem 5rem 2rem;
+    }
+    .slide {
+      display: none;
+      width: 100%;
+      max-width: 1200px;
+      height: 100%;
+      max-height: 700px;
+      animation: fadeIn 0.4s ease forwards;
+      flex-direction: column;
+      justify-content: center;
+    }
+    .slide.active {
+      display: flex;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Slide Typography & Elements */
+    .slide-title {
+      font-size: 2.2rem;
+      font-weight: 800;
+      margin-bottom: 0.5rem;
+      background: linear-gradient(135deg, #ffffff 30%, var(--text-muted));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .slide-subtitle {
+      font-size: 1.1rem;
+      color: var(--accent-cyan);
+      margin-bottom: 2rem;
+      font-weight: 500;
+    }
+
+    /* Grid Layouts */
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1.5rem;
+    }
+    .grid-3 {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1.5rem;
+    }
+    .grid-4 {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 1.25rem;
+    }
+
+    /* Cards */
+    .card {
+      background: rgba(15, 23, 42, 0.8);
+      border: 1px solid var(--bg-card-border);
+      border-radius: 12px;
+      padding: 1.5rem;
+      backdrop-filter: blur(10px);
+    }
+    .card-title {
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: var(--text-main);
+      margin-bottom: 0.75rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .card-text {
+      font-size: 0.95rem;
+      color: var(--text-muted);
+      line-height: 1.6;
+    }
+
+    .badge-highlight {
+      display: inline-block;
+      padding: 0.2rem 0.5rem;
+      border-radius: 4px;
+      font-size: 0.75rem;
+      font-family: var(--font-mono);
+      font-weight: 600;
+    }
+    .badge-danger { background: rgba(244, 63, 94, 0.15); color: var(--accent-rose); border: 1px solid rgba(244, 63, 94, 0.3); }
+    .badge-success { background: rgba(16, 185, 129, 0.15); color: var(--accent-emerald); border: 1px solid rgba(16, 185, 129, 0.3); }
+    .badge-info { background: rgba(56, 189, 248, 0.15); color: var(--accent-cyan); border: 1px solid rgba(56, 189, 248, 0.3); }
+
+    /* Code & Diagram Boxes */
+    .diagram-box {
+      background: #090d16;
+      border: 1px solid var(--bg-card-border);
+      border-radius: 10px;
+      padding: 1.25rem;
+      font-family: var(--font-mono);
+      font-size: 0.85rem;
+      color: var(--accent-cyan);
+      white-space: pre;
+      overflow-x: auto;
+      line-height: 1.4;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.9rem;
+    }
+    th, td {
+      padding: 0.75rem 1rem;
+      text-align: left;
+      border-bottom: 1px solid var(--bg-card-border);
+    }
+    th {
+      color: var(--text-muted);
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      font-weight: 600;
+    }
+
+    /* Print / PDF Mode Support */
+    @media print {
+      body { overflow: visible; height: auto; background: #fff; color: #000; }
+      .progress-container, .nav-header, .nav-footer { display: none; }
+      .deck-container { height: auto; padding: 0; display: block; }
+      .slide { display: block !important; page-break-after: always; max-height: none; margin-bottom: 2rem; }
+      .card { background: #f8fafc; border: 1px solid #cbd5e1; color: #000; }
+      .slide-title { background: none; -webkit-text-fill-color: #000; }
+      .diagram-box { background: #f1f5f9; color: #0f172a; border-color: #cbd5e1; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Progress Bar -->
+  <div class="progress-container">
+    <div class="progress-bar" id="progressBar"></div>
+  </div>
+
+  <!-- Top Header Navigation -->
+  <div class="nav-header">
+    <div class="brand-logo">
+      🛡️ DeployShield
+      <span class="brand-badge">Major Project Defense</span>
+    </div>
+    <div class="slide-counter" id="slideCounter">Slide 1 of 10</div>
+  </div>
+
+  <!-- Slide Deck -->
+  <div class="deck-container">
+
+    <!-- SLIDE 1: Title Slide -->
+    <div class="slide active">
+      <div style="text-align: center; max-width: 900px; margin: 0 auto;">
+        <span class="badge-highlight badge-info" style="margin-bottom: 1.5rem; font-size: 0.85rem;">
+          College Major Project — Capstone Defense
+        </span>
+        <h1 style="font-size: 3.2rem; font-weight: 800; line-height: 1.15; margin-bottom: 1rem; background: linear-gradient(135deg, #fff 40%, var(--accent-cyan)); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
+          DeployShield
+        </h1>
+        <p style="font-size: 1.35rem; color: var(--text-muted); margin-bottom: 2.5rem; font-weight: 400;">
+          A Lightweight Application Deployment Gateway with an Integrated ML-Based Runtime Security Layer
+        </p>
+        
+        <div class="grid-3" style="margin-top: 2rem; text-align: left;">
+          <div class="card">
+            <div class="card-title" style="color: var(--accent-indigo);">🛡️ Runtime Protection</div>
+            <div class="card-text">Intercepts & scores every HTTP request in real-time before reaching app containers.</div>
+          </div>
+          <div class="card">
+            <div class="card-title" style="color: var(--accent-cyan);">🤖 Real ML Classifier</div>
+            <div class="card-text">Trained models (Random Forest / XGBoost) detecting SQLi, XSS, and Command Injection.</div>
+          </div>
+          <div class="card">
+            <div class="card-title" style="color: var(--accent-emerald);">🐳 Single-Host Docker</div>
+            <div class="card-text">Deliberately scoped deploy engine prioritizing security engineering depth over cloud fluff.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SLIDE 2: The Problem -->
+    <div class="slide">
+      <h2 class="slide-title">The Problem</h2>
+      <p class="slide-subtitle">Default application deployments are defenseless against immediate attack traffic.</p>
+      
+      <div class="grid-2">
+        <div class="card" style="border-left: 4px solid var(--accent-rose);">
+          <div class="card-title" style="color: var(--accent-rose);">🔴 Immediate Attack Exposure</div>
+          <div class="card-text">
+            Every application deployed online is instantly probed by automated botnets for SQLi, XSS, and command injection patterns.
+          </div>
+        </div>
+        <div class="card" style="border-left: 4px solid var(--accent-amber);">
+          <div class="card-title" style="color: var(--accent-amber);">⚠️ Reliance on Code Perfection</div>
+          <div class="card-text">
+            Small teams and student projects deploy without any protective layer, assuming application code is 100% vulnerability-free.
+          </div>
+        </div>
+        <div class="card" style="border-left: 4px solid var(--accent-rose);">
+          <div class="card-title" style="color: var(--accent-rose);">💰 Expensive Enterprise Afterthought</div>
+          <div class="card-text">
+            Production platforms bolt on security as a separate, costly enterprise layer (WAFs, CDN filters) rather than integrating it natively into the deploy path.
+          </div>
+        </div>
+        <div class="card" style="border-left: 4px solid var(--accent-cyan);">
+          <div class="card-title" style="color: var(--accent-cyan);">🎯 The Missing Paradigm</div>
+          <div class="card-text">
+            A developer platform where <strong>security is a first-class citizen of the deployment pipeline</strong>, built-in by default from day one.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SLIDE 3: The Core Idea -->
+    <div class="slide">
+      <h2 class="slide-title">The Core Idea</h2>
+      <p class="slide-subtitle">Integrating Machine Learning Threat Classification natively into the deployment path.</p>
+      
+      <div class="card" style="margin-bottom: 1.5rem; background: linear-gradient(135deg, rgba(99,102,241,0.1), rgba(56,189,248,0.05)); border-color: rgba(99,102,241,0.3);">
+        <div class="card-title" style="font-size: 1.25rem; color: var(--accent-cyan);">
+          💡 Push a Repo ➔ Get a Protected Running App
+        </div>
+        <div class="card-text" style="font-size: 1.05rem;">
+          DeployShield provides a minimal deployment gateway that intercepts every HTTP request, evaluates it against a trained machine learning classifier, and enforces real-time blocking of malicious traffic while forwarding benign traffic transparently.
+        </div>
+      </div>
+
+      <div class="grid-3">
+        <div class="card">
+          <div class="card-title">1. Deploy Engine</div>
+          <div class="card-text">Accepts a git URL, builds a local Docker container image, and spawns the application instance automatically.</div>
+        </div>
+        <div class="card">
+          <div class="card-title">2. Gateway Proxy</div>
+          <div class="card-text">Acts as the single entry reverse proxy intercepting all inbound HTTP methods, URLs, headers, and request bodies.</div>
+        </div>
+        <div class="card">
+          <div class="card-title">3. ML Inference Layer</div>
+          <div class="card-text">Scores payloads in real-time. Malicious traffic is blocked with HTTP 403 & logged; benign traffic is proxied.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SLIDE 4: Architecture & Data Flow -->
+    <div class="slide">
+      <h2 class="slide-title">System Architecture & Data Flow</h2>
+      <p class="slide-subtitle">Synchronous request interception & asynchronous telemetry ingestion.</p>
+
+      <div class="diagram-box">
+                      [ Incoming Client Request ]
+                                   │
+                                   ▼
+                         ┌───────────────────┐
+                         │   /gateway        │ (Express Reverse Proxy)
+                         └─────────┬─────────┘
+                                   │
+                    1. POST /classify (Method, URL, Headers, Body)
+                                   │
+                                   ▼
+                         ┌───────────────────┐
+                         │   /ml-service     │ (FastAPI + Trained Model)
+                         └─────────┬─────────┘
+                                   │
+                    2. Verdict: (Benign / Malicious + Score)
+                                   │
+                 ┌─────────────────┴─────────────────┐
+                 │                                   │
+         [ IF MALICIOUS ]                     [ IF BENIGN ]
+                 │                                   │
+                 ▼                                   ▼
+     • Respond HTTP 403 Forbidden          • Proxy request to Target App
+     • Send Event Log to API Server          • Return Container Response
+      </div>
+    </div>
+
+    <!-- SLIDE 5: Microservices Breakdown -->
+    <div class="slide">
+      <h2 class="slide-title">Microservices Breakdown</h2>
+      <p class="slide-subtitle">Modular, decoupled microservice architecture orchestrated via Docker Compose.</p>
+
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-title" style="color: var(--accent-cyan);">🛡️ /gateway (Express Proxy)</div>
+          <div class="card-text">
+            Intercepts incoming traffic on <code>/apps/:appId/*</code>, extracts payload metadata, queries <code>ml-service</code>, blocks threats, and proxies benign traffic.
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title" style="color: var(--accent-emerald);">🧠 /ml-service (FastAPI + Py)</div>
+          <div class="card-text">
+            Extracts hand-engineered feature vectors (lengths, special char frequency, pattern tokens) and predicts attack probabilities using Random Forest.
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title" style="color: var(--accent-indigo);">⚙️ /api-server (Control Plane)</div>
+          <div class="card-text">
+            Central REST API storing container routing tables, deployment states, real-time threat logs, and aggregated security telemetry.
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title" style="color: var(--accent-amber);">🔨 /build-service (Build Engine)</div>
+          <div class="card-text">
+            Clones target repositories, builds Docker images using host socket, runs containers on <code>deployshield-net</code>, and registers container endpoints.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SLIDE 6: Novelty & Engineering Contribution -->
+    <div class="slide">
+      <h2 class="slide-title">What Makes It a Real Contribution</h2>
+      <p class="slide-subtitle">Focusing engineering depth on ML detection rigor rather than PaaS boilerplate.</p>
+
+      <div class="grid-3">
+        <div class="card" style="border-top: 4px solid var(--accent-indigo);">
+          <div class="card-title">1. Real ML Thesis</div>
+          <div class="card-text">
+            Trained on labeled HTTP attack datasets (e.g. CSIC 2010), evaluated with Precision, Recall, and F1 per class — <strong>not a hardcoded keyword blocklist dressed up as "AI."</strong>
+          </div>
+        </div>
+        <div class="card" style="border-top: 4px solid var(--accent-cyan);">
+          <div class="card-title">2. Own Evaluation Data</div>
+          <div class="card-text">
+            Generates custom labeled attack traffic using <code>sqlmap</code> and <code>OWASP ZAP</code> against sandboxed target apps so results prove real-world defense capability.
+          </div>
+        </div>
+        <div class="card" style="border-top: 4px solid var(--accent-emerald);">
+          <div class="card-title">3. Scoped Platform Engine</div>
+          <div class="card-text">
+            Intentionally minimal deployment mechanics (single-host Docker) so engineering time is focused on detection accuracy and false-positive trade-offs.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SLIDE 7: Tech Stack -->
+    <div class="slide">
+      <h2 class="slide-title">Technology Stack</h2>
+      <p class="slide-subtitle">Standard, idiomatic technologies selected for performance & transparency.</p>
+
+      <div class="card" style="margin-bottom: 1.5rem;">
+        <table>
+          <thead>
+            <tr>
+              <th>Layer / Component</th>
+              <th>Technology Stack</th>
+              <th>Role & Responsibilities</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Gateway / Reverse Proxy</strong></td>
+              <td><span class="badge-highlight badge-info">Node.js / Express</span></td>
+              <td>Traffic interception, classification middleware, request proxying</td>
+            </tr>
+            <tr>
+              <td><strong>Build Service</strong></td>
+              <td><span class="badge-highlight badge-info">Node.js / Docker CLI</span></td>
+              <td>Git clone, local Docker image build, dynamic container spawning</td>
+            </tr>
+            <tr>
+              <td><strong>API Server</strong></td>
+              <td><span class="badge-highlight badge-info">Node.js / Express</span></td>
+              <td>App registry, security event log ingestion, telemetry APIs</td>
+            </tr>
+            <tr>
+              <td><strong>ML Security Service</strong></td>
+              <td><span class="badge-highlight badge-success">Python / FastAPI / scikit-learn</span></td>
+              <td>Hand-engineered feature extraction & Random Forest inference</td>
+            </tr>
+            <tr>
+              <td><strong>Dashboard UI</strong></td>
+              <td><span class="badge-highlight badge-info">React / Vite</span></td>
+              <td>Live threat stream telemetry, stats dashboard, app controls</td>
+            </tr>
+            <tr>
+              <td><strong>Orchestration</strong></td>
+              <td><span class="badge-highlight badge-danger">Docker Compose</span></td>
+              <td>Isolated container bridge networking (<code>deployshield-net</code>)</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- SLIDE 8: Evaluation & Measurement Framework -->
+    <div class="slide">
+      <h2 class="slide-title">Evaluation & Measurement Framework</h2>
+      <p class="slide-subtitle">Rigorous metrics defined to benchmark security accuracy & performance.</p>
+
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-title" style="color: var(--accent-emerald);">🎯 Detection Accuracy</div>
+          <div class="card-text">
+            Evaluated using Precision, Recall, F1-Score, and Confusion Matrices across specific threat classes (SQLi, XSS, Command Injection).
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title" style="color: var(--accent-amber);">⚡ False-Positive Rate (FPR)</div>
+          <div class="card-text">
+            Measuring FPR on legitimate web traffic — blocking valid users is worse than missing an occasional attack. Target FPR &lt; 0.5%.
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title" style="color: var(--accent-cyan);">⏱️ Latency Overhead</div>
+          <div class="card-text">
+            Measuring p50, p95, and p99 millisecond latency added to requests by the ML classification step (target overhead &lt; 15ms).
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title" style="color: var(--accent-indigo);">🔥 Mixed Traffic Stress Testing</div>
+          <div class="card-text">
+            Evaluating gateway stability and throughput under concurrent mixed traffic loads (benign browser requests + automated attack scripts).
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SLIDE 9: Scope Boundaries -->
+    <div class="slide">
+      <h2 class="slide-title">Scope Boundaries (What This Is Not)</h2>
+      <p class="slide-subtitle">Clear engineering constraints defining the boundaries of our Capstone project.</p>
+
+      <div class="grid-3">
+        <div class="card" style="border-left: 4px solid var(--accent-rose);">
+          <div class="card-title" style="color: var(--accent-rose);">❌ Not a Commercial PaaS</div>
+          <div class="card-text">
+            No multi-region routing, no CDN edge nodes, no custom domain SSL management, and no user billing systems.
+          </div>
+        </div>
+        <div class="card" style="border-left: 4px solid var(--accent-rose);">
+          <div class="card-title" style="color: var(--accent-rose);">❌ Not a Full WAF Replacement</div>
+          <div class="card-text">
+            Focuses on a defined set of high-impact attack categories (SQLi, XSS, Cmd Injection), not every layer-7 threat vector.
+          </div>
+        </div>
+        <div class="card" style="border-left: 4px solid var(--accent-emerald);">
+          <div class="card-title" style="color: var(--accent-emerald);">✅ The Real Value Contribution</div>
+          <div class="card-text">
+            Proving the <strong>native security integration pattern</strong> and evaluating ML classification trade-offs rigorously on custom attack data.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SLIDE 10: Team & Semester Roadmap -->
+    <div class="slide">
+      <h2 class="slide-title">Team Tracks & Semester Roadmap</h2>
+      <p class="slide-subtitle">Two-semester division of responsibilities converging in system hardening.</p>
+
+      <div class="grid-2" style="margin-bottom: 1.5rem;">
+        <div class="card" style="border-top: 4px solid var(--accent-indigo);">
+          <div class="card-title" style="color: var(--accent-indigo);">🏗️ Platform Track</div>
+          <div class="card-text">
+            • Gateway reverse proxy & middleware chain<br>
+            • Build service & Docker container lifecycle<br>
+            • Control plane API & React telemetry dashboard
+          </div>
+        </div>
+        <div class="card" style="border-top: 4px solid var(--accent-cyan);">
+          <div class="card-title" style="color: var(--accent-cyan);">🔬 Security / ML Track</div>
+          <div class="card-text">
+            • Dataset sourcing & sqlmap/ZAP traffic generation<br>
+            • Hand-engineered feature extraction & model training<br>
+            • Metric evaluation, latency benchmarking & ROC tuning
+          </div>
+        </div>
+      </div>
+
+      <div class="card" style="background: rgba(15,23,42,0.6);">
+        <div class="card-title">📅 Timeline Overview</div>
+        <div class="grid-2">
+          <div><strong>Semester 1:</strong> Architecture scaffolding, end-to-end stub integration, baseline model pipeline, custom attack dataset generation.</div>
+          <div><strong>Semester 2:</strong> Feature engineering refinement, model benchmarking, caching/latency optimization, final report & live viva demo.</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Navigation Footer -->
+  <div class="nav-footer">
+    <button class="btn-nav" id="btnPrev" onclick="changeSlide(-1)">← Previous</button>
+    <div class="keyboard-hint">Use ◄ ► Arrow Keys to Navigate | Press 'P' to Print/Export PDF</div>
+    <button class="btn-nav" id="btnNext" onclick="changeSlide(1)">Next →</button>
+  </div>
+
+  <script>
+    let currentSlide = 0;
+    const slides = document.querySelectorAll('.slide');
+    const totalSlides = slides.length;
+    const progressBar = document.getElementById('progressBar');
+    const slideCounter = document.getElementById('slideCounter');
+    const btnPrev = document.getElementById('btnPrev');
+    const btnNext = document.getElementById('btnNext');
+
+    function updateDeck() {
+      slides.forEach((slide, idx) => {
+        slide.classList.toggle('active', idx === currentSlide);
+      });
+      const progress = ((currentSlide + 1) / totalSlides) * 100;
+      progressBar.style.width = `${progress}%`;
+      slideCounter.textContent = `Slide ${currentSlide + 1} of ${totalSlides}`;
+      
+      btnPrev.style.opacity = currentSlide === 0 ? '0.5' : '1';
+      btnNext.style.opacity = currentSlide === totalSlides - 1 ? '0.5' : '1';
+    }
+
+    function changeSlide(direction) {
+      if (direction === 1 && currentSlide < totalSlides - 1) {
+        currentSlide++;
+      } else if (direction === -1 && currentSlide > 0) {
+        currentSlide--;
+      }
+      updateDeck();
+    }
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowRight' || e.key === 'Space') {
+        changeSlide(1);
+      } else if (e.key === 'ArrowLeft') {
+        changeSlide(-1);
+      } else if (e.key === 'Home') {
+        currentSlide = 0;
+        updateDeck();
+      } else if (e.key === 'End') {
+        currentSlide = totalSlides - 1;
+        updateDeck();
+      } else if (e.key === 'p' || e.key === 'P') {
+        window.print();
+      }
+    });
+
+    updateDeck();
+  </script>
+</body>
+</html>
