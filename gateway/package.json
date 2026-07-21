@@ -1,0 +1,14 @@
+{
+  "name": "deployshield-gateway",
+  "version": "0.1.0",
+  "description": "DeployShield Gateway - Reverse proxy with ML-based runtime security layer",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "express-http-proxy": "^2.0.0"
+  }
+}

@@ -1,0 +1,70 @@
+version: '3.8'
+
+networks:
+  deployshield-net:
+    name: deployshield-net
+    driver: bridge
+
+services:
+  ml-service:
+    build:
+      context: ./ml-service
+    ports:
+      - "8002:8000"
+    environment:
+      - PORT=8000
+    networks:
+      - deployshield-net
+
+  gateway:
+    build:
+      context: ./gateway
+    ports:
+      - "8000:8000"
+    environment:
+      - PORT=8000
+      - ML_SERVICE_URL=http://ml-service:8000
+      - API_SERVER_URL=http://api-server:5000
+    depends_on:
+      - ml-service
+      - api-server
+    networks:
+      - deployshield-net
+
+  api-server:
+    build:
+      context: ./api-server
+    ports:
+      - "5000:5000"
+    environment:
+      - PORT=5000
+      - BUILD_SERVICE_URL=http://build-service:5001
+    networks:
+      - deployshield-net
+
+  build-service:
+    build:
+      context: ./build-service
+    ports:
+      - "5001:5001"
+    environment:
+      - PORT=5001
+      - API_SERVER_URL=http://api-server:5000
+      - DOCKER_NETWORK=deployshield-net
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./sample-app:/app/sample-app:ro
+    networks:
+      - deployshield-net
+
+  frontend:
+    build:
+      context: ./frontend
+    ports:
+      - "3000:3000"
+    environment:
+      - VITE_API_SERVER_URL=http://localhost:5000
+    depends_on:
+      - api-server
+    networks:
+      - deployshield-net
