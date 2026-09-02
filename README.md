@@ -1,59 +1,124 @@
 # DeployShield 🛡️
 
-> **DeployShield** is a lightweight application deployment gateway with an integrated machine-learning-based runtime security layer.
+**DeployShield** is a lightweight application deployment gateway with an integrated machine-learning-powered runtime security layer.
 
-Designed as a college major project, DeployShield focuses on engineering depth in runtime security, intercepting HTTP requests before they reach deployed containers to score and block malicious payloads (SQLi, XSS, Command Injection) using a dedicated ML inference classifier.
+Built as a college major project, DeployShield focuses on runtime application security by inspecting incoming HTTP requests before they reach deployed containers. Requests are analyzed by a dedicated ML inference service to identify and block threats such as **SQL Injection (SQLi)**, **Cross-Site Scripting (XSS)**, and **Command Injection** attacks in real time.
 
 ---
 
-## 🏗️ Repository Architecture
+# 🚀 Key Features
+
+- ML-powered runtime threat detection
+- Reverse proxy request interception
+- Automated application deployment from Git repositories
+- Containerized build and deployment workflow
+- Real-time security telemetry dashboard
+- JWT-based authentication system
+- Centralized application and security event management
+
+---
+
+# 🏗️ System Architecture
 
 ```text
 .
-├── gateway/          # Express reverse proxy intercepting requests & querying ml-service
-├── ml-service/       # Python FastAPI service performing runtime threat classification
-├── api-server/       # REST API managing app registry, deployments & security event logs
-├── build-service/    # Single-host build engine (git clone -> Docker build -> container run)
-├── frontend/         # React dashboard for threat telemetry and application management
-├── docs/             # System architecture & ML dataset documentation
-└── docker-compose.yml# Local multi-container development orchestration
+├── gateway/
+├── ml-service/
+├── api-server/
+├── build-service/
+├── frontend/
+├── docs/
+└── docker-compose.yml
 ```
 
-### Services Overview
+# ⚙️ Services Overview
 
-1. **`gateway` (Port 8000)**: Express-based reverse proxy. Extracts incoming HTTP request metadata (method, URL, headers, body) and calls `ml-service` (`POST /classify`) before proxying to destination app containers.
-2. **`ml-service` (Port 8002 / internal 8000)**: Python FastAPI service running ML inference. Evaluates requests for malicious patterns and returns a verdict (`benign` / `malicious`), attack classification, and confidence score.
-3. **`api-server` (Port 5000)**: Central control plane REST API storing application metadata, active container routes, and runtime security logs.
-4. **`build-service` (Port 5001)**: Node.js worker that receives git repository URLs, builds Docker container images locally on the host, runs them, and registers their routes with `api-server`.
-5. **`frontend` (Port 3000)**: React dashboard displaying live security metrics, blocked threat streams, and deployed application status.
+## Gateway (Port 8000)
+- Express reverse proxy
+- Request interception
+- ML service integration
+- Threat blocking
+
+## ML Service (Port 8002)
+- FastAPI inference service
+- RandomForestClassifier (`baseline.pkl`)
+- SQLi, XSS, Command Injection detection
+
+## API Server (Port 5000)
+- Application registry
+- Security logs
+- JWT authentication
+- Statistics endpoints
+
+### Demo Credentials
+
+```text
+Username: admin
+Password: password123
+```
+
+## Build Service (Port 5001)
+- Git clone
+- Docker build
+- Container deployment
+- Route registration
+
+## Frontend (Port 3000)
+- React dashboard
+- Threat telemetry
+- Deployment management
+- Authentication UI
 
 ---
 
-## 🚀 Getting Started
-
-### Prerequisites
-
-- [Docker Engine](https://docs.docker.com/get-docker/) (v20+)
-- [Docker Compose](https://docs.docker.com/compose/) (v2+)
-
-### Running Locally
-
-To launch all DeployShield services in local dev mode:
+# 🐳 Running Locally
 
 ```bash
 docker compose up --build
 ```
 
-Access services at:
-- **Frontend Dashboard**: `http://localhost:3000`
-- **Gateway Proxy**: `http://localhost:8000`
-- **API Server**: `http://localhost:5000`
-- **ML Service API Docs**: `http://localhost:8002/docs`
-- **Build Service**: `http://localhost:5001`
+## Access URLs
+
+- Frontend: http://localhost:3000
+- Gateway: http://localhost:8000
+- API: http://localhost:5000
+- ML Docs: http://localhost:8002/docs
+- Build Service: http://localhost:5001
 
 ---
 
-## 📖 Documentation
+# 📊 Current Status
 
-- [Architecture & Data Flow](file:///Users/sohamzinjad/vercel/docs/architecture.md)
-- [ML Dataset & Methodology Notes](file:///Users/sohamzinjad/vercel/docs/dataset-notes.md)
+## Completed
+
+- RandomForest ML model integrated
+- JWT authentication
+- Login endpoint
+- React AuthContext
+- Protected dashboard
+- Dockerized deployment
+
+## Planned Improvements
+
+- Logout endpoint
+- Refresh-token flow
+- Database-backed users
+- ProtectedRoute component
+- Docker health checks
+- GitHub Actions CI/CD
+- Integration testing
+- Dark mode and UI polish
+
+---
+
+# 🎓 Academic Project
+
+DeployShield demonstrates the integration of:
+
+- Machine Learning
+- Runtime Security
+- Containerized Deployments
+- Cloud-Native Architecture
+- Full-Stack Development
+
+to provide intelligent protection for deployed applications.
