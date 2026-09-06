@@ -45,7 +45,7 @@ import {
   Share2
 } from 'lucide-react';
 
-const API_BASE = import.meta.env.VITE_API_SERVER_URL || 'http://localhost:5000';
+const API_BASE = import.meta.env.VITE_API_SERVER_URL || 'http://localhost:5003';
 const GATEWAY_BASE = import.meta.env.VITE_GATEWAY_URL || 'http://localhost:8000';
 
 export default function App() {

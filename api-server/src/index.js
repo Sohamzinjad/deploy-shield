@@ -6,7 +6,7 @@ const { predict } = require('./predict');
 const loginRouter = require('./login');
 
 const app = express();
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 5003;
 const BUILD_SERVICE_URL = process.env.BUILD_SERVICE_URL || 'http://build-service:5001';
 
 app.use(cors());
