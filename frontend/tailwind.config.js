@@ -4,31 +4,38 @@ export default {
     "./index.html",
     "./src/**/*.{js,ts,jsx,tsx}",
   ],
+  darkMode: 'class',
   theme: {
     extend: {
       colors: {
-        cyber: {
-          bg: '#060913',
-          card: '#0c1222',
-          cardHover: '#111a30',
-          border: 'rgba(255, 255, 255, 0.08)',
-          cyan: '#38bdf8',
-          blue: '#3b82f6',
-          indigo: '#6366f1',
-          purple: '#8b5cf6',
-          danger: '#f43f5e',
-          success: '#10b981',
-          warning: '#f59e0b',
+        vercel: {
+          bg: '#000000',
+          surface: '#0a0a0a',
+          card: '#111111',
+          cardHover: '#171717',
+          border: '#262626',
+          borderHover: '#404040',
+          muted: '#888888',
+          text: '#ededed',
+          accent: '#0070f3',
+          success: '#0070f3',
+          danger: '#ee0000',
+          warning: '#f5a623',
         }
       },
       fontFamily: {
-        sans: ['"Plus Jakarta Sans"', 'Inter', 'system-ui', 'sans-serif'],
-        mono: ['"JetBrains Mono"', 'monospace'],
+        sans: ['"Geist"', 'Inter', 'system-ui', '-apple-system', 'sans-serif'],
+        mono: ['"Geist Mono"', '"JetBrains Mono"', 'monospace'],
       },
       boxShadow: {
-        'glow-cyan': '0 0 25px rgba(56, 189, 248, 0.25)',
-        'glow-indigo': '0 0 30px rgba(99, 102, 241, 0.3)',
-        'glow-danger': '0 0 25px rgba(244, 63, 94, 0.25)',
+        'vercel': '0 0 0 1px rgba(255, 255, 255, 0.1)',
+        'vercel-hover': '0 0 0 1px rgba(255, 255, 255, 0.2), 0 8px 30px rgba(0, 0, 0, 0.5)',
+        'glow-white': '0 0 20px rgba(255, 255, 255, 0.15)',
+        'glow-blue': '0 0 25px rgba(0, 112, 243, 0.3)',
+        'glow-red': '0 0 25px rgba(238, 0, 0, 0.3)',
+      },
+      animation: {
+        'pulse-subtle': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
       }
     },
   },
