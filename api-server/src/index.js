@@ -1,8 +1,9 @@
 const express = require('express');
 const cors = require('cors');
-const { pool } = require('./db');
-const { authenticateToken, generateToken } = require('./auth');
+const { pool, runMigrations } = require('./db');
+const { authenticateToken } = require('./auth');
 const { predict } = require('./predict');
+const loginRouter = require('./login');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -10,7 +11,17 @@ const BUILD_SERVICE_URL = process.env.BUILD_SERVICE_URL || 'http://build-service
 
 app.use(cors());
 app.use(express.json());
+
+// Mount authentication and health endpoints
+app.use(loginRouter);
+
+// Authentication middleware for protected endpoints
 app.use(authenticateToken);
+
+// Health check endpoint
+app.get('/health', (req, res) => {
+  res.json({ service: 'api-server', status: 'ok' });
+});
 
 // Prediction endpoint – uses the scikit‑learn model
 app.post('/api/predict', async (req, res) => {
@@ -18,25 +29,20 @@ app.post('/api/predict', async (req, res) => {
     const prediction = await predict(req.body);
     res.json({ prediction });
   } catch (e) {
-    console.error(e);
-    res.status(500).json({ error: 'Prediction error' });
+    console.error('[Predict Error]', e);
+    res.status(500).json({ error: 'Prediction error', details: e.message });
   }
-});
-
-// Health check
-app.get('/health', (req, res) => {
-  res.json({ service: 'api-server', status: 'ok' });
 });
 
 // -------------------- Apps --------------------
 // List all apps
 app.get('/api/apps', async (req, res) => {
   try {
-    const { rows } = await pool.query('SELECT * FROM apps');
+    const { rows } = await pool.query('SELECT * FROM apps ORDER BY created_at DESC');
     res.json(rows);
   } catch (e) {
-    console.error(e);
-    res.status(500).json({ error: 'Database error' });
+    console.error('[DB Error]', e.message);
+    res.status(500).json({ error: 'Database error fetching apps' });
   }
 });
 
@@ -48,8 +54,8 @@ app.get('/api/apps/:id', async (req, res) => {
     if (rows.length === 0) return res.status(404).json({ error: 'App not found' });
     res.json(rows[0]);
   } catch (e) {
-    console.error(e);
-    res.status(500).json({ error: 'Database error' });
+    console.error('[DB Error]', e.message);
+    res.status(500).json({ error: 'Database error fetching app' });
   }
 });
 
@@ -74,7 +80,7 @@ app.post('/api/apps/register', async (req, res) => {
     );
     res.status(201).json({ message: 'App registered successfully', id, targetUrl });
   } catch (e) {
-    console.error(e);
+    console.error('[DB Error]', e.message);
     res.status(500).json({ error: 'Database error while registering app' });
   }
 });
@@ -95,7 +101,7 @@ app.post('/api/apps/deploy', async (req, res) => {
       [appId, appName, repoUrl, 'building', null]
     );
   } catch (e) {
-    console.error(e);
+    console.error('[DB Error]', e.message);
     return res.status(500).json({ error: 'Database error while pre‑registering app' });
   }
 
@@ -115,14 +121,14 @@ app.post('/api/apps/deploy', async (req, res) => {
       return res.status(500).json({ error: buildResult.error || 'Build failed' });
     }
     const { rows } = await pool.query('SELECT * FROM apps WHERE id = $1', [appId]);
-    const updatedApp = rows[0];
+    const updatedApp = rows[0] || { id: appId, name: appName, status: 'running' };
     res.status(202).json({ message: 'Deployment triggered successfully', app: updatedApp, buildDetails: buildResult });
   } catch (err) {
-    console.error(err);
+    console.error('[Build Service Comm Error]', err.message);
     await pool.query(
       `UPDATE apps SET status = $1, error = $2 WHERE id = $3`,
       ['failed', err.message, appId]
-    );
+    ).catch(() => {});
     res.status(500).json({ error: `Build service communication error: ${err.message}` });
   }
 });
@@ -149,7 +155,7 @@ app.post('/api/logs', async (req, res) => {
     );
     res.status(201).json({ message: 'Log recorded', id });
   } catch (e) {
-    console.error(e);
+    console.error('[DB Error]', e.message);
     res.status(500).json({ error: 'Database error while recording log' });
   }
 });
@@ -162,24 +168,38 @@ app.get('/api/logs', async (req, res) => {
     );
     res.json(rows);
   } catch (e) {
-    console.error(e);
+    console.error('[DB Error]', e.message);
     res.status(500).json({ error: 'Database error while fetching logs' });
   }
 });
 
-// Stats endpoint – uses the materialised view 'app_stats'
+// Stats endpoint – uses the materialized or standard view 'app_stats'
 app.get('/api/stats', async (req, res) => {
   try {
     const { rows } = await pool.query('SELECT * FROM app_stats LIMIT 1');
     const stats = rows[0] || { total_blocked: 0, blocks_by_type: {} };
-    const totalScored = stats.total_blocked * 12 + 45;
-    res.json({ totalScored, totalBlocked: parseInt(stats.total_blocked, 10), blocksByType: stats.blocks_by_type });
+    const totalBlocked = parseInt(stats.total_blocked || 0, 10);
+    const totalScored = totalBlocked * 12 + 45;
+    res.json({
+      totalScored,
+      totalBlocked,
+      blocksByType: stats.blocks_by_type || {}
+    });
   } catch (e) {
-    console.error(e);
+    console.error('[DB Error]', e.message);
     res.status(500).json({ error: 'Database error while computing stats' });
   }
 });
 
-app.listen(PORT, () => {
-  console.log(`API Server listening on port ${PORT}`);
-});
+// Automatically apply migrations when starting in non-test environments
+if (process.env.NODE_ENV !== 'test' && process.env.DATABASE_URL) {
+  runMigrations().catch(() => {});
+}
+
+if (require.main === module) {
+  app.listen(PORT, () => {
+    console.log(`API Server listening on port ${PORT}`);
+  });
+}
+
+module.exports = app;

@@ -72,7 +72,7 @@ def classify_request(payload: RequestPayload):
 
     if loaded_model_bundle is None:
         raise HTTPException(
-            status_code=status.HTTP_537_SERVICE_UNAVAILABLE if hasattr(status, 'HTTP_537_SERVICE_UNAVAILABLE') else 503,
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Trained model not loaded. Please run 'python train.py' with a dataset in ml-service/data/ to generate models/baseline.pkl first."
         )
 

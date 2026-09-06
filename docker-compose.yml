@@ -1,5 +1,3 @@
-
-
 networks:
   deployshield-net:
     name: deployshield-net
@@ -9,7 +7,7 @@ services:
   init-db:
     image: postgres:15-alpine
     env_file: .env
-    command: ["sh","-c","psql $DATABASE_URL -f /db/init.sql"]
+    command: ["sh", "-c", "psql $DATABASE_URL -f /db/init.sql"]
     volumes:
       - ./db/init.sql:/db/init.sql:ro
     networks:
@@ -47,6 +45,7 @@ services:
       context: ./api-server
     ports:
       - "5003:5000"
+    env_file: .env
     environment:
       - PORT=5000
       - BUILD_SERVICE_URL=http://build-service:5001
@@ -77,6 +76,7 @@ services:
       - "3000:3000"
     environment:
       - VITE_API_SERVER_URL=http://localhost:5003
+      - VITE_GATEWAY_URL=http://localhost:8000
     depends_on:
       - api-server
     networks:
