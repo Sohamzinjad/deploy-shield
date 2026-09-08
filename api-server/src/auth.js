@@ -21,7 +21,8 @@ function authenticateToken(req, res, next) {
   // Allow internal service-to-service communication endpoints
   const isInternalServiceEndpoint =
     (req.method === 'POST' && path === '/api/logs') ||
-    (req.method === 'POST' && path === '/api/apps/register');
+    (req.method === 'POST' && path === '/api/apps/register') ||
+    (req.method === 'GET' && /^\/api\/apps\/[^/]+$/.test(path));
 
   if (isAuthOrHealth || isInternalServiceEndpoint) {
     return next();

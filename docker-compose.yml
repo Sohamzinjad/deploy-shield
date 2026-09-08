@@ -7,7 +7,7 @@ services:
   init-db:
     image: postgres:15-alpine
     env_file: .env
-    command: ["sh", "-c", "psql $DATABASE_URL -f /db/init.sql"]
+    command: ["sh", "-c", "psql \"$DATABASE_URL\" -f /db/init.sql"]
     volumes:
       - ./db/init.sql:/db/init.sql:ro
     networks:
@@ -29,7 +29,7 @@ services:
     build:
       context: ./gateway
     ports:
-      - "8080:8000"
+      - "8081:8000"
     environment:
       - PORT=8000
       - ML_SERVICE_URL=http://ml-service:8000
@@ -76,7 +76,7 @@ services:
       - "3000:3000"
     environment:
       - VITE_API_SERVER_URL=http://localhost:5003
-      - VITE_GATEWAY_URL=http://localhost:8080
+      - VITE_GATEWAY_URL=http://localhost:8081
     depends_on:
       - api-server
     networks:

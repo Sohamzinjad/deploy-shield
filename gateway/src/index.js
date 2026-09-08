@@ -125,12 +125,13 @@ app.use('/apps/:appId', mlSecurityMiddleware, async (req, res, next) => {
     }
 
     const appData = await apiRes.json();
-    if (!appData.targetUrl || appData.status !== 'running') {
+    const targetUrl = appData.targetUrl || appData.target_url;
+    if (!targetUrl || appData.status !== 'running') {
       return res.status(503).json({ error: `Application '${appId}' is not currently running (status: ${appData.status})` });
     }
 
     // Dynamic proxy to container targetUrl
-    proxy(appData.targetUrl, {
+    proxy(targetUrl, {
       proxyReqPathResolver: (proxyReq) => {
         // Strip /apps/:appId prefix so container receives subpath (e.g. /apps/app-1/hello -> /hello)
         const subpath = proxyReq.originalUrl.replace(new RegExp(`^/apps/${appId}`), '');

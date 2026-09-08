@@ -46,7 +46,7 @@ import {
 } from 'lucide-react';
 
 const API_BASE = import.meta.env.VITE_API_SERVER_URL || 'http://localhost:5003';
-const GATEWAY_BASE = import.meta.env.VITE_GATEWAY_URL || 'http://localhost:8080';
+const GATEWAY_BASE = import.meta.env.VITE_GATEWAY_URL || 'http://localhost:8081';
 
 export default function App() {
   const { token, login, logout } = useContext(AuthContext);
@@ -685,17 +685,32 @@ export default function App() {
                           </span>
                         </div>
 
-                        {/* Domain Link */}
-                        <div className="mt-4 pt-3 border-t border-[#1a1a1a]">
+                        {/* Domain Links */}
+                        <div className="mt-4 pt-3 border-t border-[#1a1a1a] flex flex-col gap-1.5">
                           <a
                             href={gatewayDomain}
                             target="_blank"
                             rel="noreferrer"
                             className="text-xs font-mono text-neutral-400 hover:text-white flex items-center gap-1.5 transition truncate"
+                            title="Protected through DeployShield ML Gateway"
                           >
+                            <span className="text-emerald-400 text-[10px] font-bold">WAF</span>
                             <span>/apps/{app.id}/</span>
                             <ArrowUpRight className="w-3 h-3 shrink-0 text-neutral-500 group-hover:text-white" />
                           </a>
+                          {app.host_port && (
+                            <a
+                              href={`http://localhost:${app.host_port}`}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="text-[11px] font-mono text-neutral-500 hover:text-neutral-200 flex items-center gap-1.5 transition truncate"
+                              title="Direct Container Port"
+                            >
+                              <span className="text-neutral-500 text-[10px]">HOST</span>
+                              <span>localhost:{app.host_port}</span>
+                              <ArrowUpRight className="w-2.5 h-2.5 shrink-0 text-neutral-600 group-hover:text-white" />
+                            </a>
+                          )}
                         </div>
                       </div>
 
@@ -782,14 +797,28 @@ export default function App() {
                           {app.target_url || 'http://sample-app:3000'}
                         </td>
                         <td className="py-3.5 px-4 text-right">
-                          <a
-                            href={`${GATEWAY_BASE}/apps/${app.id}/`}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="inline-flex items-center gap-1 text-xs text-neutral-300 hover:text-white underline font-mono"
-                          >
-                            Visit App <ArrowUpRight className="w-3 h-3" />
-                          </a>
+                          <div className="flex items-center justify-end gap-3">
+                            <a
+                              href={`${GATEWAY_BASE}/apps/${app.id}/`}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="inline-flex items-center gap-1 text-xs text-emerald-400 hover:text-emerald-300 underline font-mono"
+                              title="WAF Protected Route"
+                            >
+                              Gateway <ArrowUpRight className="w-3 h-3" />
+                            </a>
+                            {app.host_port && (
+                              <a
+                                href={`http://localhost:${app.host_port}`}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="inline-flex items-center gap-1 text-xs text-neutral-400 hover:text-white underline font-mono"
+                                title="Direct Container Port"
+                              >
+                                Direct :{app.host_port} <ArrowUpRight className="w-3 h-3" />
+                              </a>
+                            )}
+                          </div>
                         </td>
                       </tr>
                     ))

@@ -48,9 +48,74 @@ app.post('/build', async (req, res) => {
       await execAsync(`git clone --depth 1 "${repoUrl}" "${buildDir}"`);
     }
 
-    // Step 2: Verify Dockerfile exists
-    if (!fs.existsSync(path.join(buildDir, 'Dockerfile'))) {
-      throw new Error(`No Dockerfile found in cloned repository at ${repoUrl}`);
+    // Step 2: Verify Dockerfile exists or auto-generate for common runtimes
+    const dockerfilePath = path.join(buildDir, 'Dockerfile');
+    if (!fs.existsSync(dockerfilePath)) {
+      if (fs.existsSync(path.join(buildDir, 'package.json'))) {
+        console.log(`[Build] No Dockerfile found; auto-generating Node.js Dockerfile for ${repoUrl}...`);
+        const generatedDockerfile = `FROM node:20-alpine
+WORKDIR /app
+COPY . .
+RUN npm install
+RUN if npm run | grep -q "build"; then npm run build; fi
+EXPOSE 3000
+ENV PORT=3000
+ENV NODE_ENV=production
+CMD ["npm", "start"]
+`;
+        fs.writeFileSync(dockerfilePath, generatedDockerfile);
+      } else if (fs.existsSync(path.join(buildDir, 'requirements.txt'))) {
+        console.log(`[Build] No Dockerfile found; auto-generating Python Dockerfile for ${repoUrl}...`);
+        const generatedDockerfile = `FROM python:3.11-slim
+WORKDIR /app
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+COPY . .
+EXPOSE 3000
+ENV PORT=3000
+CMD ["python", "app.py"]
+`;
+        fs.writeFileSync(dockerfilePath, generatedDockerfile);
+      } else if (fs.existsSync(path.join(buildDir, 'backend/requirements.txt'))) {
+        console.log(`[Build] Detected Python service in backend/; auto-generating Dockerfile for ${repoUrl}...`);
+        const generatedDockerfile = `FROM python:3.11-slim
+WORKDIR /app
+COPY backend/requirements.txt ./requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
+COPY backend/ .
+EXPOSE 3000
+ENV PORT=3000
+CMD ["sh", "-c", "python seed.py 2>/dev/null || true; gunicorn --bind 0.0.0.0:3000 --workers 1 run:app || python run.py || python app.py"]
+`;
+        fs.writeFileSync(dockerfilePath, generatedDockerfile);
+      } else if (fs.existsSync(path.join(buildDir, 'backend/package.json'))) {
+        console.log(`[Build] Detected Node service in backend/; auto-generating Dockerfile for ${repoUrl}...`);
+        const generatedDockerfile = `FROM node:20-alpine
+WORKDIR /app
+COPY backend/ .
+RUN npm install
+RUN if npm run | grep -q "build"; then npm run build; fi
+EXPOSE 3000
+ENV PORT=3000
+ENV NODE_ENV=production
+CMD ["npm", "start"]
+`;
+        fs.writeFileSync(dockerfilePath, generatedDockerfile);
+      } else if (fs.existsSync(path.join(buildDir, 'frontend/package.json'))) {
+        console.log(`[Build] Detected frontend service; auto-generating Dockerfile for ${repoUrl}...`);
+        const generatedDockerfile = `FROM node:20-alpine
+WORKDIR /app
+COPY frontend/ .
+RUN npm install
+RUN npm run build
+RUN npm install -g serve
+EXPOSE 3000
+CMD ["serve", "-s", "dist", "-l", "3000"]
+`;
+        fs.writeFileSync(dockerfilePath, generatedDockerfile);
+      } else {
+        throw new Error(`No Dockerfile found in cloned repository at ${repoUrl}`);
+      }
     }
 
     // Step 3: Build Docker Image
