@@ -1,8 +1,8 @@
-const express = require('express');
-const { exec } = require('child_process');
-const fs = require('fs');
-const path = require('path');
-const util = require('util');
+import express, { Request, Response } from 'express';
+import { exec } from 'child_process';
+import fs from 'fs';
+import path from 'path';
+import util from 'util';
 
 const execAsync = util.promisify(exec);
 
@@ -13,13 +13,19 @@ const DOCKER_NETWORK = process.env.DOCKER_NETWORK || 'deployshield-net';
 
 app.use(express.json());
 
-app.get('/health', (req, res) => {
+app.get('/health', (req: Request, res: Response) => {
   res.json({ service: 'build-service', status: 'ok' });
 });
 
+export interface BuildRequest {
+  repoUrl: string;
+  appId: string;
+  name?: string;
+}
+
 // POST /build - Clone git repo, build Docker image, run container & register with api-server
-app.post('/build', async (req, res) => {
-  const { repoUrl, appId, name } = req.body;
+app.post('/build', async (req: Request, res: Response) => {
+  const { repoUrl, appId, name } = req.body as BuildRequest;
   if (!repoUrl || !appId) {
     return res.status(400).json({ error: 'repoUrl and appId are required' });
   }
@@ -161,7 +167,7 @@ CMD ["serve", "-s", "dist", "-l", "3000"]
       hostPort,
       registration: regData
     });
-  } catch (err) {
+  } catch (err: any) {
     console.error(`[Build Error] Failed building app ${appId}:`, err);
     res.status(500).json({
       success: false,
@@ -171,6 +177,10 @@ CMD ["serve", "-s", "dist", "-l", "3000"]
   }
 });
 
-app.listen(PORT, () => {
-  console.log(`Build Service listening on port ${PORT}`);
-});
+if (require.main === module) {
+  app.listen(PORT, () => {
+    console.log(`Build Service listening on port ${PORT}`);
+  });
+}
+
+export default app;

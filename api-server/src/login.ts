@@ -1,13 +1,14 @@
-// src/login.js
-const express = require('express');
-const router = express.Router();
-const { generateToken } = require('./auth');
+// src/login.ts
+import express, { Request, Response, Router } from 'express';
+import { generateToken } from './auth';
+
+const router: Router = express.Router();
 
 const DEMO_USER = process.env.ADMIN_USER || 'admin';
 const DEMO_PASS = process.env.ADMIN_PASSWORD || 'password123';
 
 // Handler for login
-const handleLogin = (req, res) => {
+export const handleLogin = (req: Request, res: Response) => {
   const { username, password } = req.body || {};
   if (username === DEMO_USER && password === DEMO_PASS) {
     const token = generateToken({ username, role: 'admin' });
@@ -21,7 +22,7 @@ const handleLogin = (req, res) => {
 };
 
 // Handler for logout
-const handleLogout = (req, res) => {
+export const handleLogout = (req: Request, res: Response) => {
   return res.json({ success: true, message: 'Logged out successfully' });
 };
 
@@ -31,4 +32,4 @@ router.post('/api/login', handleLogin);
 router.post('/logout', handleLogout);
 router.post('/api/logout', handleLogout);
 
-module.exports = router;
+export default router;

@@ -1,38 +1,36 @@
-const request = require('supertest');
-const app = require('../src/index');
-const { generateToken } = require('../src/auth');
+import request from 'supertest';
+import app from '../src/index';
+import { generateToken } from '../src/auth';
 
 // Mock pg pool so tests run independently of external DB connection
-jest.mock('../src/db', () => {
-  const mockRows = [];
-  return {
-    pool: {
-      query: jest.fn(async (sql, params) => {
-        if (sql.includes('app_stats')) {
-          return { rows: [{ total_blocked: 5, blocks_by_type: { SQLI: 3, XSS: 2 } }] };
-        }
-        if (sql.includes('SELECT * FROM apps WHERE id')) {
-          const id = params && params[0];
-          return { rows: [{ id: id || 'test-app', name: 'Test App', status: 'running' }] };
-        }
-        if (sql.includes('SELECT * FROM apps')) {
-          return { rows: [{ id: 'app-1', name: 'Test App 1', status: 'running' }] };
-        }
-        if (sql.includes('SELECT * FROM security_logs')) {
-          return { rows: [{ id: 'evt-1', attack_type: 'SQLI', action: 'BLOCKED', timestamp: new Date().toISOString() }] };
-        }
-        if (sql.includes('INSERT INTO')) {
-          return { rows: [] };
-        }
+jest.mock('../src/db', () => ({
+  __esModule: true,
+  pool: {
+    query: jest.fn(async (sql: string, params?: any[]) => {
+      if (sql.includes('app_stats')) {
+        return { rows: [{ total_blocked: 5, blocks_by_type: { SQLI: 3, XSS: 2 } }] };
+      }
+      if (sql.includes('SELECT * FROM apps WHERE id')) {
+        const id = params && params[0];
+        return { rows: [{ id: id || 'test-app', name: 'Test App', status: 'running' }] };
+      }
+      if (sql.includes('SELECT * FROM apps')) {
+        return { rows: [{ id: 'app-1', name: 'Test App 1', status: 'running' }] };
+      }
+      if (sql.includes('SELECT * FROM security_logs')) {
+        return { rows: [{ id: 'evt-1', attack_type: 'SQLI', action: 'BLOCKED', timestamp: new Date().toISOString() }] };
+      }
+      if (sql.includes('INSERT INTO')) {
         return { rows: [] };
-      })
-    },
-    runMigrations: jest.fn().mockResolvedValue(true)
-  };
-});
+      }
+      return { rows: [] };
+    })
+  },
+  runMigrations: jest.fn().mockResolvedValue(true)
+}));
 
 describe('DeployShield API Server Integration Tests', () => {
-  let validToken;
+  let validToken: string;
 
   beforeAll(() => {
     validToken = generateToken({ username: 'admin', role: 'admin' });

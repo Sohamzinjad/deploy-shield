@@ -1,5 +1,5 @@
-const express = require('express');
-const proxy = require('express-http-proxy');
+import express, { Request, Response, NextFunction } from 'express';
+import proxy from 'express-http-proxy';
 
 const app = express();
 const PORT = process.env.PORT || 8000;
@@ -11,7 +11,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // Enable CORS for frontend requests
-app.use((req, res, next) => {
+app.use((req: Request, res: Response, next: NextFunction) => {
   res.header('Access-Control-Allow-Origin', '*');
   res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
   res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
@@ -22,11 +22,11 @@ app.use((req, res, next) => {
 });
 
 // GET & POST /config - Dynamic Security Sensitivity Control
-app.get('/config', (req, res) => {
+app.get('/config', (req: Request, res: Response) => {
   res.json({ confidenceThreshold: CONFIDENCE_THRESHOLD });
 });
 
-app.post('/config', (req, res) => {
+app.post('/config', (req: Request, res: Response) => {
   const { threshold } = req.body;
   if (typeof threshold === 'number' && threshold >= 0.1 && threshold <= 1.0) {
     CONFIDENCE_THRESHOLD = threshold;
@@ -37,12 +37,12 @@ app.post('/config', (req, res) => {
 });
 
 // Health check endpoint
-app.get('/health', (req, res) => {
+app.get('/health', (req: Request, res: Response) => {
   res.json({ service: 'gateway', status: 'ok' });
 });
 
 // Middleware: ML Classification and Security Interception
-const mlSecurityMiddleware = async (req, res, next) => {
+const mlSecurityMiddleware = async (req: Request, res: Response, next: NextFunction) => {
   // Skip security classification for gateway health check
   if (req.path === '/health') {
     return next();
@@ -71,7 +71,7 @@ const mlSecurityMiddleware = async (req, res, next) => {
       return next(); // Fail-open for proxy continuity if ML service errors in stub mode
     }
 
-    const result = await mlResponse.json();
+    const result: any = await mlResponse.json();
 
     // 2. Check if request is malicious above confidence threshold
     if (result.is_malicious && result.confidence >= CONFIDENCE_THRESHOLD) {
@@ -92,7 +92,7 @@ const mlSecurityMiddleware = async (req, res, next) => {
             action: 'BLOCKED'
           })
         });
-      } catch (logErr) {
+      } catch (logErr: any) {
         console.error('[Gateway Error] Failed logging event to api-server:', logErr.message);
       }
 
@@ -107,14 +107,14 @@ const mlSecurityMiddleware = async (req, res, next) => {
 
     // Benign request -> proceed to routing
     next();
-  } catch (err) {
+  } catch (err: any) {
     console.error('[Gateway Error] ML classification middleware error:', err.message);
     next();
   }
 };
 
 // Route: /apps/:appId/* -> Reverse proxy to deployed app container
-app.use('/apps/:appId', mlSecurityMiddleware, async (req, res, next) => {
+app.use('/apps/:appId', mlSecurityMiddleware, async (req: Request, res: Response, next: NextFunction) => {
   const { appId } = req.params;
 
   try {
@@ -124,7 +124,7 @@ app.use('/apps/:appId', mlSecurityMiddleware, async (req, res, next) => {
       return res.status(404).json({ error: `Application '${appId}' not found in registry` });
     }
 
-    const appData = await apiRes.json();
+    const appData: any = await apiRes.json();
     const targetUrl = appData.targetUrl || appData.target_url;
     if (!targetUrl || appData.status !== 'running') {
       return res.status(503).json({ error: `Application '${appId}' is not currently running (status: ${appData.status})` });
@@ -138,20 +138,24 @@ app.use('/apps/:appId', mlSecurityMiddleware, async (req, res, next) => {
         return subpath === '' ? '/' : subpath;
       }
     })(req, res, next);
-  } catch (err) {
+  } catch (err: any) {
     console.error(`[Gateway Error] Proxy error for app ${appId}:`, err.message);
     res.status(502).json({ error: `Bad Gateway — Failed proxying request to app ${appId}` });
   }
 });
 
 // Fallback route handler
-app.all('*', mlSecurityMiddleware, (req, res) => {
+app.all('*', mlSecurityMiddleware, (req: Request, res: Response) => {
   res.status(404).json({
     message: 'DeployShield Gateway — Unknown route',
     hint: 'Use /apps/:appId/ to reach deployed applications'
   });
 });
 
-app.listen(PORT, () => {
-  console.log(`Gateway listening on port ${PORT}`);
-});
+if (require.main === module) {
+  app.listen(PORT, () => {
+    console.log(`Gateway listening on port ${PORT}`);
+  });
+}
+
+export default app;

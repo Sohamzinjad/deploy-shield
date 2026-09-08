@@ -1,13 +1,24 @@
-const jwt = require('jsonwebtoken');
+import { Request, Response, NextFunction } from 'express';
+import jwt from 'jsonwebtoken';
 
-const SECRET = process.env.JWT_SECRET || 'deployshield-jwt-secret-key-2024-secure';
-const TTL = process.env.JWT_TTL || '24h';
-
-function generateToken(payload) {
-  return jwt.sign(payload, SECRET, { expiresIn: TTL });
+export interface UserPayload {
+  username: string;
+  role?: string;
+  [key: string]: any;
 }
 
-function authenticateToken(req, res, next) {
+export interface AuthenticatedRequest extends Request {
+  user?: UserPayload | string;
+}
+
+export const SECRET = process.env.JWT_SECRET || 'deployshield-jwt-secret-key-2024-secure';
+export const TTL = process.env.JWT_TTL || '24h';
+
+export function generateToken(payload: object): string {
+  return jwt.sign(payload, SECRET, { expiresIn: TTL as any });
+}
+
+export function authenticateToken(req: AuthenticatedRequest, res: Response, next: NextFunction): void | Response {
   // Allow health check, login, logout, and auth routes without token
   const path = req.path;
   const isAuthOrHealth =
@@ -41,9 +52,7 @@ function authenticateToken(req, res, next) {
     if (err) {
       return res.status(403).json({ error: 'Invalid or expired token' });
     }
-    req.user = user;
+    req.user = user as UserPayload;
     next();
   });
 }
-
-module.exports = { generateToken, authenticateToken, SECRET };

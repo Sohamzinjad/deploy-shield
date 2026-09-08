@@ -1,8 +1,8 @@
-const { PythonShell } = require('python-shell');
-const path = require('path');
-const fs = require('fs');
+import { PythonShell, Options } from 'python-shell';
+import path from 'path';
+import fs from 'fs';
 
-function findFirstExistingPath(paths) {
+function findFirstExistingPath(paths: string[]): string {
   for (const p of paths) {
     if (fs.existsSync(p)) return p;
   }
@@ -15,21 +15,21 @@ const candidateModelPaths = [
   path.resolve(__dirname, '../ml-service/models/baseline.pkl'),
   path.resolve(__dirname, '../models/baseline.pkl'),
   '/app/ml-service/models/baseline.pkl'
-].filter(Boolean);
+].filter((p): p is string => Boolean(p));
 
 const candidateScriptDirs = [
   process.env.ML_SCRIPT_DIR,
   path.resolve(__dirname, '../../ml-service'),
   path.resolve(__dirname, '../ml-service'),
   '/app/ml-service'
-].filter(Boolean);
+].filter((p): p is string => Boolean(p));
 
-function predict(requestObj) {
+export function predict(requestObj: any): Promise<any> {
   return new Promise((resolve, reject) => {
     const modelPath = findFirstExistingPath(candidateModelPaths);
     const scriptDir = findFirstExistingPath(candidateScriptDirs);
 
-    const options = {
+    const options: Options = {
       mode: 'json',
       pythonOptions: ['-u'],
       scriptPath: scriptDir,
@@ -37,13 +37,13 @@ function predict(requestObj) {
     };
 
     const pyshell = new PythonShell('predict_helper.py', options);
-    let output = null;
+    let output: any = null;
 
-    pyshell.on('message', (message) => {
+    pyshell.on('message', (message: any) => {
       output = message;
     });
 
-    pyshell.on('error', (err) => {
+    pyshell.on('error', (err: Error) => {
       reject(err);
     });
 
@@ -53,8 +53,8 @@ function predict(requestObj) {
 
     // Pass the object directly; python-shell in json mode stringifies it automatically
     pyshell.send(requestObj);
-    pyshell.end();
+    pyshell.end((err) => {
+      if (err) reject(err);
+    });
   });
 }
-
-module.exports = { predict };

@@ -1,6 +1,6 @@
-const { Pool } = require('pg');
-const fs = require('fs');
-const path = require('path');
+import { Pool, PoolConfig } from 'pg';
+import fs from 'fs';
+import path from 'path';
 
 const databaseUrl = process.env.DATABASE_URL || '';
 const requiresSsl =
@@ -9,7 +9,7 @@ const requiresSsl =
   databaseUrl.includes('neon.tech') ||
   process.env.NODE_ENV === 'production';
 
-const poolConfig = {
+const poolConfig: PoolConfig = {
   connectionString: databaseUrl || 'postgresql://postgres:postgres@localhost:5432/deployshield'
 };
 
@@ -17,14 +17,14 @@ if (requiresSsl) {
   poolConfig.ssl = { rejectUnauthorized: false };
 }
 
-const pool = new Pool(poolConfig);
+export const pool = new Pool(poolConfig);
 
-pool.on('error', (err) => {
+pool.on('error', (err: Error) => {
   console.error('[Database Pool Error]', err.message);
 });
 
 // Run init.sql if present
-async function runMigrations() {
+export async function runMigrations(): Promise<boolean> {
   const candidatePaths = [
     '/db/init.sql',
     path.resolve(__dirname, '../../db/init.sql'),
@@ -39,12 +39,10 @@ async function runMigrations() {
         await pool.query(sql);
         console.log(`[Database] Migrations applied successfully from ${sqlPath}`);
         return true;
-      } catch (err) {
+      } catch (err: any) {
         console.error(`[Database Error] Failed applying migrations from ${sqlPath}:`, err.message);
       }
     }
   }
   return false;
 }
-
-module.exports = { pool, runMigrations };
