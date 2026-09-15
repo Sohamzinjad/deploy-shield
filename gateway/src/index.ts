@@ -146,7 +146,14 @@ const mlSecurityMiddleware = async (req: Request, res: Response, next: NextFunct
 
 // Route: /apps/:appId/* -> Reverse proxy to deployed app container
 app.use('/apps/:appId', mlSecurityMiddleware, async (req: Request, res: Response, next: NextFunction) => {
-  const { appId } = req.params;
+  const appIdParam = req.params.appId;
+  // Express permits repeated path parameters, which are represented as an
+  // array. This route addresses exactly one application, so reject those
+  // malformed requests instead of accidentally coercing them into an ID.
+  if (Array.isArray(appIdParam) || !appIdParam) {
+    return res.status(400).json({ error: 'A single application ID is required' });
+  }
+  const appId = appIdParam;
 
   try {
     // Query api-server for app target container address

@@ -26,6 +26,7 @@ ml-service/models/*.pkl
 .DS_Store
 .vscode/
 .idea/
+.codex/
 
 # Environment Variables
 .env

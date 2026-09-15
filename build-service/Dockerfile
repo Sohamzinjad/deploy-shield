@@ -3,7 +3,7 @@ FROM node:20-alpine
 RUN apk add --no-cache git docker-cli
 WORKDIR /app
 COPY package*.json ./
-RUN npm install
+RUN npm ci
 COPY . .
 COPY sample-app ./sample-app
 EXPOSE 5001
