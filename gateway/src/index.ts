@@ -1,10 +1,14 @@
 import express, { Request, Response, NextFunction } from 'express';
 import proxy from 'express-http-proxy';
+import crypto from 'crypto';
 
 const app = express();
 const PORT = process.env.PORT || 8000;
 const ML_SERVICE_URL = process.env.ML_SERVICE_URL || 'http://ml-service:8000';
 const API_SERVER_URL = process.env.API_SERVER_URL || 'http://api-server:5000';
+const INTERNAL_SERVICE_TOKEN = process.env.INTERNAL_SERVICE_TOKEN || '';
+const JWT_SECRET = process.env.JWT_SECRET || 'development-only-change-me';
+const FRONTEND_ORIGIN = process.env.FRONTEND_ORIGIN || 'http://localhost:3000';
 let CONFIDENCE_THRESHOLD = parseFloat(process.env.CONFIDENCE_THRESHOLD || '0.8');
 
 app.use(express.json());
@@ -12,7 +16,10 @@ app.use(express.urlencoded({ extended: true }));
 
 // Enable CORS for frontend requests
 app.use((req: Request, res: Response, next: NextFunction) => {
-  res.header('Access-Control-Allow-Origin', '*');
+  const origin = req.header('origin');
+  if (origin && FRONTEND_ORIGIN.split(',').map((value) => value.trim()).includes(origin)) {
+    res.header('Access-Control-Allow-Origin', origin);
+  }
   res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
   res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
   if (req.method === 'OPTIONS') {
@@ -21,12 +28,36 @@ app.use((req: Request, res: Response, next: NextFunction) => {
   next();
 });
 
-// GET & POST /config - Dynamic Security Sensitivity Control
+function isAdminToken(req: Request): boolean {
+  const token = req.header('authorization')?.replace(/^Bearer\s+/i, '');
+  if (!token) return false;
+  const [encodedHeader, encodedPayload, signature] = token.split('.');
+  if (!encodedHeader || !encodedPayload || !signature) return false;
+  try {
+    const header = JSON.parse(Buffer.from(encodedHeader, 'base64url').toString('utf8'));
+    const payload = JSON.parse(Buffer.from(encodedPayload, 'base64url').toString('utf8'));
+    const expected = crypto.createHmac('sha256', JWT_SECRET).update(`${encodedHeader}.${encodedPayload}`).digest('base64url');
+    const expectedBuffer = Buffer.from(expected);
+    const signatureBuffer = Buffer.from(signature);
+    return header.alg === 'HS256' && payload.role === 'admin' &&
+      (!payload.exp || payload.exp > Math.floor(Date.now() / 1000)) &&
+      expectedBuffer.length === signatureBuffer.length && crypto.timingSafeEqual(expectedBuffer, signatureBuffer);
+  } catch {
+    return false;
+  }
+}
+
+function requireAdmin(req: Request, res: Response, next: NextFunction): void | Response {
+  if (!isAdminToken(req)) return res.status(401).json({ error: 'Administrator authentication required' });
+  next();
+}
+
+// Dynamic Security Sensitivity Control is restricted to dashboard administrators.
 app.get('/config', (req: Request, res: Response) => {
   res.json({ confidenceThreshold: CONFIDENCE_THRESHOLD });
 });
 
-app.post('/config', (req: Request, res: Response) => {
+app.post('/config', requireAdmin, (req: Request, res: Response) => {
   const { threshold } = req.body;
   if (typeof threshold === 'number' && threshold >= 0.1 && threshold <= 1.0) {
     CONFIDENCE_THRESHOLD = threshold;
@@ -68,7 +99,7 @@ const mlSecurityMiddleware = async (req: Request, res: Response, next: NextFunct
 
     if (!mlResponse.ok) {
       console.warn(`[Gateway Warning] ML service returned HTTP ${mlResponse.status}`);
-      return next(); // Fail-open for proxy continuity if ML service errors in stub mode
+      return res.status(503).json({ error: 'Security classifier unavailable; request was not forwarded' });
     }
 
     const result: any = await mlResponse.json();
@@ -81,7 +112,7 @@ const mlSecurityMiddleware = async (req: Request, res: Response, next: NextFunct
       try {
         await fetch(`${API_SERVER_URL}/api/logs`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', 'X-Internal-Service-Token': INTERNAL_SERVICE_TOKEN },
           body: JSON.stringify({
             timestamp: new Date().toISOString(),
             clientIp: req.ip || req.socket.remoteAddress || '127.0.0.1',
@@ -109,7 +140,7 @@ const mlSecurityMiddleware = async (req: Request, res: Response, next: NextFunct
     next();
   } catch (err: any) {
     console.error('[Gateway Error] ML classification middleware error:', err.message);
-    next();
+    return res.status(503).json({ error: 'Security classifier unavailable; request was not forwarded' });
   }
 };
 
@@ -119,7 +150,9 @@ app.use('/apps/:appId', mlSecurityMiddleware, async (req: Request, res: Response
 
   try {
     // Query api-server for app target container address
-    const apiRes = await fetch(`${API_SERVER_URL}/api/apps/${appId}`);
+    const apiRes = await fetch(`${API_SERVER_URL}/api/apps/${appId}`, {
+      headers: { 'X-Internal-Service-Token': INTERNAL_SERVICE_TOKEN }
+    });
     if (!apiRes.ok) {
       return res.status(404).json({ error: `Application '${appId}' not found in registry` });
     }
@@ -136,6 +169,19 @@ app.use('/apps/:appId', mlSecurityMiddleware, async (req: Request, res: Response
         // Strip /apps/:appId prefix so container receives subpath (e.g. /apps/app-1/hello -> /hello)
         const subpath = proxyReq.originalUrl.replace(new RegExp(`^/apps/${appId}`), '');
         return subpath === '' ? '/' : subpath;
+      },
+      // Static frontends commonly emit root-relative asset paths such as
+      // "/assets/index.js". They would otherwise escape /apps/:appId and
+      // produce a blank page behind this path-prefix proxy.
+      userResDecorator: (proxyRes, proxyResData) => {
+        const contentType = String(proxyRes.headers['content-type'] || '');
+        if (!contentType.includes('text/html')) return proxyResData;
+
+        const prefix = `/apps/${encodeURIComponent(appId)}`;
+        return proxyResData
+          .toString('utf8')
+          .replace(/\b(src|href|action)=(['"])\/(?!\/)/gi, `$1=$2${prefix}/`)
+          .replace(/url\((['"]?)\/(?!\/)/gi, `url($1${prefix}/`);
       }
     })(req, res, next);
   } catch (err: any) {

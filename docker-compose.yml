@@ -1,83 +1,88 @@
+services:
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:?Copy .env.example to .env and set credentials}
+      POSTGRES_USER: ${POSTGRES_USER:?Copy .env.example to .env and set credentials}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Copy .env.example to .env and set credentials}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+    networks: [deployshield-net]
+
+  ml-service:
+    build: ./ml-service
+    healthcheck:
+      test: ["CMD", "python", "-c", "import json, urllib.request; assert json.load(urllib.request.urlopen('http://localhost:8000/health'))['model_loaded']"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+    networks: [deployshield-net]
+
+  api-server:
+    build: ./api-server
+    ports: ["5003:5000"]
+    environment:
+      PORT: 5000
+      # Set DATABASE_URL in .env to use a managed database such as Neon.
+      DATABASE_URL: ${DATABASE_URL:-postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
+      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN:?INTERNAL_SERVICE_TOKEN is required}
+      FRONTEND_ORIGIN: ${FRONTEND_ORIGIN:-http://localhost:3000}
+      GATEWAY_PUBLIC_URL: ${GATEWAY_PUBLIC_URL:-http://localhost:8081}
+      BUILD_SERVICE_URL: http://build-service:5001
+      NODE_ENV: production
+    depends_on:
+      postgres: { condition: service_healthy }
+    networks: [deployshield-net]
+
+  gateway:
+    build: ./gateway
+    ports: ["8081:8000"]
+    environment:
+      PORT: 8000
+      ML_SERVICE_URL: http://ml-service:8000
+      API_SERVER_URL: http://api-server:5000
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
+      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN:?INTERNAL_SERVICE_TOKEN is required}
+      FRONTEND_ORIGIN: ${FRONTEND_ORIGIN:-http://localhost:3000}
+    depends_on:
+      ml-service: { condition: service_healthy }
+      api-server: { condition: service_started }
+    networks: [deployshield-net]
+
+  # Deliberately not published to the host: this service has Docker-socket access.
+  build-service:
+    build: ./build-service
+    environment:
+      PORT: 5001
+      API_SERVER_URL: http://api-server:5000
+      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN:?INTERNAL_SERVICE_TOKEN is required}
+      DOCKER_NETWORK: deployshield-net
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    depends_on:
+      api-server: { condition: service_started }
+    networks: [deployshield-net]
+
+  frontend:
+    build: ./frontend
+    ports: ["3000:3000"]
+    environment:
+      VITE_API_SERVER_URL: http://localhost:5003
+      VITE_GATEWAY_URL: http://localhost:8081
+    depends_on:
+      api-server: { condition: service_started }
+    networks: [deployshield-net]
+
 networks:
   deployshield-net:
     name: deployshield-net
     driver: bridge
 
-services:
-  init-db:
-    image: postgres:15-alpine
-    env_file: .env
-    command: ["sh", "-c", "psql \"$DATABASE_URL\" -f /db/init.sql"]
-    volumes:
-      - ./db/init.sql:/db/init.sql:ro
-    networks:
-      - deployshield-net
-
-  ml-service:
-    build:
-      context: ./ml-service
-    ports:
-      - "8002:8000"
-    environment:
-      - PORT=8000
-    volumes:
-      - ./ml-service/models:/app/models
-    networks:
-      - deployshield-net
-
-  gateway:
-    build:
-      context: ./gateway
-    ports:
-      - "8081:8000"
-    environment:
-      - PORT=8000
-      - ML_SERVICE_URL=http://ml-service:8000
-      - API_SERVER_URL=http://api-server:5000
-    depends_on:
-      - ml-service
-      - api-server
-    networks:
-      - deployshield-net
-
-  api-server:
-    build:
-      context: ./api-server
-    ports:
-      - "5003:5000"
-    env_file: .env
-    environment:
-      - PORT=5000
-      - BUILD_SERVICE_URL=http://build-service:5001
-    depends_on:
-      - init-db
-    networks:
-      - deployshield-net
-
-  build-service:
-    build:
-      context: ./build-service
-    ports:
-      - "5001:5001"
-    environment:
-      - PORT=5001
-      - API_SERVER_URL=http://api-server:5000
-      - DOCKER_NETWORK=deployshield-net
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-      - ./sample-app:/app/sample-app:ro
-    networks:
-      - deployshield-net
-
-  frontend:
-    build:
-      context: ./frontend
-    ports:
-      - "3000:3000"
-    environment:
-      - VITE_API_SERVER_URL=http://localhost:5003
-      - VITE_GATEWAY_URL=http://localhost:8081
-    depends_on:
-      - api-server
-    networks:
-      - deployshield-net
+volumes:
+  postgres-data:

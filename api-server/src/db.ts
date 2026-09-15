@@ -27,6 +27,8 @@ pool.on('error', (err: Error) => {
 export async function runMigrations(): Promise<boolean> {
   const candidatePaths = [
     '/db/init.sql',
+    '/app/db/init.sql',
+    path.resolve(__dirname, '../init.sql'),
     path.resolve(__dirname, '../../db/init.sql'),
     path.resolve(__dirname, '../db/init.sql'),
     path.resolve(__dirname, 'init.sql')

@@ -1,15 +1,16 @@
 import express, { Request, Response } from 'express';
-import { exec } from 'child_process';
+import { execFile } from 'child_process';
 import fs from 'fs';
 import path from 'path';
 import util from 'util';
 
-const execAsync = util.promisify(exec);
+const execFileAsync = util.promisify(execFile);
 
 const app = express();
 const PORT = process.env.PORT || 5001;
 const API_SERVER_URL = process.env.API_SERVER_URL || 'http://api-server:5000';
 const DOCKER_NETWORK = process.env.DOCKER_NETWORK || 'deployshield-net';
+const INTERNAL_SERVICE_TOKEN = process.env.INTERNAL_SERVICE_TOKEN || '';
 
 app.use(express.json());
 
@@ -23,6 +24,35 @@ export interface BuildRequest {
   name?: string;
 }
 
+function validateRepositoryUrl(repoUrl: string): void {
+  if (repoUrl === 'local://sample-app' || repoUrl === '/app/sample-app') return;
+  let parsed: URL;
+  try {
+    parsed = new URL(repoUrl);
+  } catch {
+    throw new Error('repoUrl must be a valid HTTPS or HTTP URL');
+  }
+  if (!['https:', 'http:'].includes(parsed.protocol) || parsed.username || parsed.password) {
+    throw new Error('repoUrl must be an HTTP(S) URL without embedded credentials');
+  }
+}
+
+async function run(command: string, args: string[], cwd?: string) {
+  return execFileAsync(command, args, { cwd, timeout: 10 * 60 * 1000, maxBuffer: 10 * 1024 * 1024 });
+}
+
+async function imagePort(imageName: string): Promise<number> {
+  const { stdout } = await run('docker', ['image', 'inspect', imageName, '--format', '{{json .Config.ExposedPorts}}']);
+  const exposedPorts = JSON.parse(stdout.trim() || '{}') || {};
+  const ports = Object.keys(exposedPorts)
+    .map((entry) => Number.parseInt(entry.split('/')[0], 10))
+    .filter(Number.isInteger);
+
+  // Most generated images use 3000; otherwise honor the first port declared
+  // by the repository's Dockerfile rather than guessing a public host port.
+  return ports.includes(3000) ? 3000 : (ports[0] || 3000);
+}
+
 // POST /build - Clone git repo, build Docker image, run container & register with api-server
 app.post('/build', async (req: Request, res: Response) => {
   const { repoUrl, appId, name } = req.body as BuildRequest;
@@ -33,12 +63,10 @@ app.post('/build', async (req: Request, res: Response) => {
   const buildDir = `/tmp/builds/${appId}`;
   const containerName = `deployshield-app-${appId}`;
   const imageName = `deployshield-app-${appId}:latest`;
-  // Random dynamic host port allocation between 8080 and 8999
-  const hostPort = 8080 + Math.floor(Math.random() * 900);
-  const targetUrl = `http://${containerName}:3000`;
 
   try {
     console.log(`[Build] Starting build job for app [${appId}] from ${repoUrl}`);
+    validateRepositoryUrl(repoUrl);
 
     // Step 1: Prepare directory & obtain repository source code
     if (fs.existsSync(buildDir)) {
@@ -48,16 +76,20 @@ app.post('/build', async (req: Request, res: Response) => {
 
     if (repoUrl === 'local://sample-app' || repoUrl === '/app/sample-app') {
       console.log(`[Build] Using local sample app template at /app/sample-app`);
-      await execAsync(`cp -r /app/sample-app/* ${buildDir}/`);
+      fs.cpSync('/app/sample-app', buildDir, { recursive: true, force: true });
     } else {
       console.log(`[Build] Executing git clone for ${repoUrl}`);
-      await execAsync(`git clone --depth 1 "${repoUrl}" "${buildDir}"`);
+      await run('git', ['clone', '--depth', '1', repoUrl, buildDir]);
     }
 
     // Step 2: Verify Dockerfile exists or auto-generate for common runtimes
     const dockerfilePath = path.join(buildDir, 'Dockerfile');
     if (!fs.existsSync(dockerfilePath)) {
       if (fs.existsSync(path.join(buildDir, 'package.json'))) {
+        const packageJson = JSON.parse(fs.readFileSync(path.join(buildDir, 'package.json'), 'utf8'));
+        if (!packageJson.scripts?.start) {
+          throw new Error('Repository has no Dockerfile and its package.json has no start script. Add a Dockerfile that starts a web server.');
+        }
         console.log(`[Build] No Dockerfile found; auto-generating Node.js Dockerfile for ${repoUrl}...`);
         const generatedDockerfile = `FROM node:20-alpine
 WORKDIR /app
@@ -126,32 +158,37 @@ CMD ["serve", "-s", "dist", "-l", "3000"]
 
     // Step 3: Build Docker Image
     console.log(`[Build] Building Docker image ${imageName}...`);
-    await execAsync(`docker build -t "${imageName}" "${buildDir}"`);
+    await run('docker', ['build', '-t', imageName, buildDir]);
+    const containerPort = await imagePort(imageName);
+    const targetUrl = `http://${containerName}:${containerPort}`;
 
     // Step 4: Stop & Remove old container if exists
     try {
-      await execAsync(`docker rm -f "${containerName}"`);
+      await run('docker', ['rm', '-f', containerName]);
     } catch (_) {
       // Ignore if container doesn't exist
     }
 
     // Step 5: Run Docker Container attached to DeployShield bridge network
-    console.log(`[Build] Launching container ${containerName} on network ${DOCKER_NETWORK} (host port ${hostPort})...`);
-    await execAsync(
-      `docker run -d --name "${containerName}" --network "${DOCKER_NETWORK}" -p ${hostPort}:3000 "${imageName}"`
-    );
+    console.log(`[Build] Launching container ${containerName} on network ${DOCKER_NETWORK}...`);
+    await run('docker', ['run', '-d', '--name', containerName, '--network', DOCKER_NETWORK, imageName]);
+
+    const { stdout: running } = await run('docker', ['inspect', '--format', '{{.State.Running}}', containerName]);
+    if (running.trim() !== 'true') {
+      throw new Error('Container exited immediately after startup. Check its logs or add a Dockerfile with the correct start command.');
+    }
 
     // Step 6: Register container endpoint with api-server
     console.log(`[Build] Registering ${appId} -> ${targetUrl} with api-server`);
     const regResponse = await fetch(`${API_SERVER_URL}/api/apps/register`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'X-Internal-Service-Token': INTERNAL_SERVICE_TOKEN },
       body: JSON.stringify({
         id: appId,
         name: name || appId,
         repoUrl,
         targetUrl,
-        hostPort
+        hostPort: null
       })
     });
 
@@ -164,7 +201,8 @@ CMD ["serve", "-s", "dist", "-l", "3000"]
       imageName,
       containerName,
       targetUrl,
-      hostPort,
+      containerPort,
+      hostPort: null,
       registration: regData
     });
   } catch (err: any) {

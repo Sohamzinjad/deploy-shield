@@ -26,14 +26,11 @@ COPY frontend ./frontend
 RUN cd frontend && npm run build
 
 # ----------- Final runtime image -----------
-FROM node:20-alpine
+FROM backend AS runtime
 WORKDIR /app
 
-# Copy backend runtime files
-COPY --from=backend /app/api-server ./api-server
-
-# Copy ML model files
-COPY ml-service/models ./ml-service/models
+# Copy the full inference pipeline, not merely the serialized model.
+COPY ml-service ./ml-service
 
 # Copy built frontend assets
 COPY --from=frontend /app/frontend/dist ./frontend/dist

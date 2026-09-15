@@ -6,10 +6,12 @@ import { predict } from './predict';
 import loginRouter from './login';
 
 const app = express();
-const PORT = process.env.PORT || 5003;
+const PORT = process.env.PORT || 5000;
 const BUILD_SERVICE_URL = process.env.BUILD_SERVICE_URL || 'http://build-service:5001';
+const FRONTEND_ORIGIN = process.env.FRONTEND_ORIGIN || 'http://localhost:3000';
+const GATEWAY_PUBLIC_URL = (process.env.GATEWAY_PUBLIC_URL || 'http://localhost:8081').replace(/\/$/, '');
 
-app.use(cors());
+app.use(cors({ origin: FRONTEND_ORIGIN.split(',').map((origin) => origin.trim()) }));
 app.use(express.json());
 
 // Mount authentication and health endpoints
@@ -122,7 +124,12 @@ app.post('/api/apps/deploy', async (req: Request, res: Response) => {
     }
     const { rows } = await pool.query('SELECT * FROM apps WHERE id = $1', [appId]);
     const updatedApp = rows[0] || { id: appId, name: appName, status: 'running' };
-    res.status(202).json({ message: 'Deployment triggered successfully', app: updatedApp, buildDetails: buildResult });
+    res.status(201).json({
+      message: 'Deployment completed successfully',
+      app: updatedApp,
+      url: `${GATEWAY_PUBLIC_URL}/apps/${encodeURIComponent(appId)}/`,
+      buildDetails: buildResult
+    });
   } catch (err: any) {
     console.error('[Build Service Comm Error]', err.message);
     await pool.query(

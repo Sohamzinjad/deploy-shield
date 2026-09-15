@@ -190,7 +190,7 @@ export default function App() {
     try {
       await fetch(`${GATEWAY_BASE}/config`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify({ threshold: newVal })
       });
     } catch (err) {
@@ -274,14 +274,11 @@ export default function App() {
       if (res.ok) {
         setDeployFeedback({
           type: 'success',
-          message: `Deployment initiated! App ID: ${data.app?.id || data.appId || 'New App'}`
+          message: `Deployment completed! App ID: ${data.app?.id || data.appId || 'New App'}`,
+          url: data.url
         });
         setRepoUrl('');
         setAppName('');
-        setTimeout(() => {
-          setIsDeployModalOpen(false);
-          setDeployFeedback(null);
-        }, 2000);
         fetchDashboardData();
       } else {
         setDeployFeedback({
@@ -698,19 +695,6 @@ export default function App() {
                             <span>/apps/{app.id}/</span>
                             <ArrowUpRight className="w-3 h-3 shrink-0 text-neutral-500 group-hover:text-white" />
                           </a>
-                          {app.host_port && (
-                            <a
-                              href={`http://localhost:${app.host_port}`}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="text-[11px] font-mono text-neutral-500 hover:text-neutral-200 flex items-center gap-1.5 transition truncate"
-                              title="Direct Container Port"
-                            >
-                              <span className="text-neutral-500 text-[10px]">HOST</span>
-                              <span>localhost:{app.host_port}</span>
-                              <ArrowUpRight className="w-2.5 h-2.5 shrink-0 text-neutral-600 group-hover:text-white" />
-                            </a>
-                          )}
                         </div>
                       </div>
 
@@ -807,17 +791,6 @@ export default function App() {
                             >
                               Gateway <ArrowUpRight className="w-3 h-3" />
                             </a>
-                            {app.host_port && (
-                              <a
-                                href={`http://localhost:${app.host_port}`}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="inline-flex items-center gap-1 text-xs text-neutral-400 hover:text-white underline font-mono"
-                                title="Direct Container Port"
-                              >
-                                Direct :{app.host_port} <ArrowUpRight className="w-3 h-3" />
-                              </a>
-                            )}
                           </div>
                         </td>
                       </tr>
@@ -1389,6 +1362,16 @@ export default function App() {
                     <CheckCircle2 className="w-4 h-4 shrink-0" />
                   )}
                   <span>{deployFeedback.message}</span>
+                  {deployFeedback.url && (
+                    <a
+                      href={deployFeedback.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="ml-1 underline text-emerald-300 hover:text-white"
+                    >
+                      Open protected app ↗
+                    </a>
+                  )}
                 </div>
               )}
 

@@ -33,6 +33,7 @@ describe('DeployShield API Server Integration Tests', () => {
   let validToken: string;
 
   beforeAll(() => {
+    process.env.INTERNAL_SERVICE_TOKEN = 'test-internal-service-token';
     validToken = generateToken({ username: 'admin', role: 'admin' });
   });
 
@@ -118,9 +119,15 @@ describe('DeployShield API Server Integration Tests', () => {
       expect(res.body.blocksByType).toHaveProperty('SQLI');
     });
 
-    it('POST /api/logs should succeed without token (internal gateway whitelist)', async () => {
+    it('POST /api/logs rejects requests without an internal service token', async () => {
+      const res = await request(app).post('/api/logs').send({ path: '/apps/test' });
+      expect(res.status).toBe(403);
+    });
+
+    it('POST /api/logs succeeds with the internal gateway token', async () => {
       const res = await request(app)
         .post('/api/logs')
+        .set('X-Internal-Service-Token', 'test-internal-service-token')
         .send({
           clientIp: '192.168.1.1',
           method: 'GET',
@@ -134,9 +141,10 @@ describe('DeployShield API Server Integration Tests', () => {
       expect(res.body.message).toBe('Log recorded');
     });
 
-    it('POST /api/apps/register should succeed without token (internal build-service whitelist)', async () => {
+    it('POST /api/apps/register succeeds with the internal build-service token', async () => {
       const res = await request(app)
         .post('/api/apps/register')
+        .set('X-Internal-Service-Token', 'test-internal-service-token')
         .send({
           id: 'app-sample',
           name: 'Sample App',
