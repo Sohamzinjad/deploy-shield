@@ -9,6 +9,7 @@ const PORT = process.env.PORT || 5000;
 const BUILD_SERVICE_URL = process.env.BUILD_SERVICE_URL || 'http://build-service:5001';
 const FRONTEND_ORIGIN = process.env.FRONTEND_ORIGIN || 'http://localhost:3000';
 const GATEWAY_PUBLIC_URL = (process.env.GATEWAY_PUBLIC_URL || 'http://localhost:8081').replace(/\/$/, '');
+const INTERNAL_SERVICE_TOKEN = process.env.INTERNAL_SERVICE_TOKEN || '';
 
 app.use(cors({ origin: FRONTEND_ORIGIN.split(',').map((origin) => origin.trim()) }));
 app.use(express.json());
