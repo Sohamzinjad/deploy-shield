@@ -4,8 +4,10 @@ from fastapi import FastAPI, HTTPException, status
 from pydantic import BaseModel
 import joblib
 import numpy as np
+import pandas as pd
 
-from features import extract_feature_vector, FEATURE_COLUMNS
+from features import extract_feature_vector, extract_features_dict, FEATURE_COLUMNS
+
 
 app = FastAPI(
     title="DeployShield ML Security Service",
@@ -78,16 +80,17 @@ def classify_request(payload: RequestPayload):
 
     clf = loaded_model_bundle['model']
     
-    # 1. Extract feature vector
-    feat_vector = extract_feature_vector(
+    # 1. Extract features as named DataFrame row (matches training feature names)
+    feat_dict = extract_features_dict(
         payload.method,
         payload.url,
         payload.headers,
         payload.body
     )
+    feat_df = pd.DataFrame([feat_dict])[FEATURE_COLUMNS]
 
     # 2. Predict probability distribution across classes
-    probs = clf.predict_proba([feat_vector])[0]
+    probs = clf.predict_proba(feat_df)[0]
     classes = clf.classes_
     best_idx = int(np.argmax(probs))
     
@@ -99,5 +102,6 @@ def classify_request(payload: RequestPayload):
         is_malicious=is_malicious,
         label=predicted_label,
         confidence=round(confidence, 4),
-        model_version="1.0.0-randomforest"
+        model_version="2.0.0-randomforest"
     )
+

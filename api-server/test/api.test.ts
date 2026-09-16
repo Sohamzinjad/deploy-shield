@@ -10,12 +10,21 @@ jest.mock('../src/db', () => ({
       if (sql.includes('app_stats')) {
         return { rows: [{ total_blocked: 5, blocks_by_type: { SQLI: 3, XSS: 2 } }] };
       }
+      if (sql.includes('system_metrics')) {
+        return { rows: [{ value: '50' }] };
+      }
       if (sql.includes('SELECT * FROM apps WHERE id')) {
         const id = params && params[0];
         return { rows: [{ id: id || 'test-app', name: 'Test App', status: 'running' }] };
       }
       if (sql.includes('SELECT * FROM apps')) {
         return { rows: [{ id: 'app-1', name: 'Test App 1', status: 'running' }] };
+      }
+      if (sql.includes('DELETE FROM apps WHERE id')) {
+        return { rowCount: 1, rows: [{ id: params && params[0] }] };
+      }
+      if (sql.includes('DELETE FROM apps')) {
+        return { rowCount: 1, rows: [{ id: 'app-1' }] };
       }
       if (sql.includes('SELECT * FROM security_logs')) {
         return { rows: [{ id: 'evt-1', attack_type: 'SQLI', action: 'BLOCKED', timestamp: new Date().toISOString() }] };
@@ -155,5 +164,42 @@ describe('DeployShield API Server Integration Tests', () => {
       expect(res.status).toBe(201);
       expect(res.body.message).toBe('App registered successfully');
     });
+
+    it('GET /api/apps/by-domain/:domain returns matching app', async () => {
+      const res = await request(app)
+        .get('/api/apps/by-domain/sample-app')
+        .set('Authorization', `Bearer ${validToken}`);
+
+      expect(res.status).toBe(200);
+      expect(res.body.id).toBeDefined();
+    });
+
+    it('POST /api/telemetry/scored succeeds with the internal gateway token', async () => {
+      const res = await request(app)
+        .post('/api/telemetry/scored')
+        .set('X-Internal-Service-Token', 'test-internal-service-token')
+        .send({ increment: 1 });
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+    });
+
+    it('POST /api/telemetry/scored rejects requests without internal token', async () => {
+      const res = await request(app)
+        .post('/api/telemetry/scored')
+        .send({ increment: 1 });
+
+      expect(res.status).toBe(403);
+    });
+
+    it('DELETE /api/apps/:id deletes an app successfully', async () => {
+      const res = await request(app)
+        .delete('/api/apps/app-1')
+        .set('Authorization', `Bearer ${validToken}`);
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+    });
   });
 });
+

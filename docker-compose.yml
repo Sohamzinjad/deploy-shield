@@ -49,6 +49,7 @@ services:
       API_SERVER_URL: http://api-server:5000
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
       INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN:?INTERNAL_SERVICE_TOKEN is required}
+      CONFIDENCE_THRESHOLD: ${CONFIDENCE_THRESHOLD:-0.30}
       FRONTEND_ORIGIN: ${FRONTEND_ORIGIN:-http://localhost:3000}
     depends_on:
       ml-service: { condition: service_healthy }

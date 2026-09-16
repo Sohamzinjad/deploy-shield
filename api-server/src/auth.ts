@@ -60,6 +60,7 @@ export function authenticateToken(req: AuthenticatedRequest, res: Response, next
   const isInternalServiceEndpoint =
     (req.method === 'POST' && path === '/api/logs') ||
     (req.method === 'POST' && path === '/api/apps/register') ||
+    (req.method === 'POST' && path === '/api/telemetry/scored') ||
     (req.method === 'GET' && /^\/api\/apps\/[^/]+$/.test(path));
 
   if (isAuthOrHealth) {

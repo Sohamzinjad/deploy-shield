@@ -35,3 +35,8 @@ SELECT
       GROUP BY attack_type
     ) s
   ), '{}'::jsonb) AS blocks_by_type;
+
+CREATE TABLE IF NOT EXISTS system_metrics (
+  key TEXT PRIMARY KEY,
+  value BIGINT NOT NULL DEFAULT 0
+);

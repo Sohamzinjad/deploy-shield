@@ -42,8 +42,10 @@ import {
   HelpCircle,
   Bell,
   Box,
-  Share2
+  Share2,
+  Trash2
 } from 'lucide-react';
+
 
 const API_BASE = import.meta.env.VITE_API_SERVER_URL || 'http://localhost:5003';
 const GATEWAY_BASE = import.meta.env.VITE_GATEWAY_URL || 'http://localhost:8081';
@@ -78,6 +80,7 @@ export default function App() {
   const [frameworkPreset, setFrameworkPreset] = useState('express');
   const [isDeploying, setIsDeploying] = useState(false);
   const [deployFeedback, setDeployFeedback] = useState(null);
+  const [envVarsText, setEnvVarsText] = useState('');
 
   // Security WAF controls state
   const [sensitivity, setSensitivity] = useState(0.8);
@@ -141,6 +144,18 @@ export default function App() {
       return () => clearInterval(interval);
     }
   }, [token]);
+
+  // Sync actual running sensitivity threshold from Gateway
+  useEffect(() => {
+    fetch(`${GATEWAY_BASE}/config`)
+      .then((res) => res.json())
+      .then((cfg) => {
+        if (typeof cfg.confidenceThreshold === 'number') {
+          setSensitivity(cfg.confidenceThreshold);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   // Keyboard shortcut for Command Palette (⌘K / Ctrl+K)
   useEffect(() => {
@@ -252,6 +267,52 @@ export default function App() {
     }
   };
 
+  // Delete single project handler
+  const handleDeleteApp = async (appId, appName) => {
+    if (!window.confirm(`Are you sure you want to delete "${appName || appId}"? This will terminate its Docker container and remove the domain.`)) {
+      return;
+    }
+    try {
+      const res = await fetch(`${API_BASE}/api/apps/${encodeURIComponent(appId)}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      if (res.ok) {
+        fetchDashboardData();
+      } else {
+        const data = await res.json();
+        alert(`Failed to delete app: ${data.error || 'Server error'}`);
+      }
+    } catch (err) {
+      alert(`Delete error: ${err.message}`);
+    }
+  };
+
+  // Clear all projects handler
+  const handleClearAllApps = async () => {
+    if (!window.confirm('Are you sure you want to delete ALL projects and terminate their running containers?')) {
+      return;
+    }
+    try {
+      const res = await fetch(`${API_BASE}/api/apps`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      if (res.ok) {
+        fetchDashboardData();
+      } else {
+        const data = await res.json();
+        alert(`Failed to clear apps: ${data.error || 'Server error'}`);
+      }
+    } catch (err) {
+      alert(`Clear error: ${err.message}`);
+    }
+  };
+
   // Deploy project handler
   const handleDeploy = async (e) => {
     e.preventDefault();
@@ -260,6 +321,22 @@ export default function App() {
     setIsDeploying(true);
     setDeployFeedback({ type: 'info', message: 'Triggering Docker build & gateway registration...' });
 
+    // Parse environment variables if provided
+    const envVars = {};
+    if (envVarsText) {
+      envVarsText.split('\n').forEach((line) => {
+        const trimmed = line.trim();
+        if (trimmed && !trimmed.startsWith('#')) {
+          const idx = trimmed.indexOf('=');
+          if (idx > 0) {
+            const k = trimmed.substring(0, idx).trim();
+            const v = trimmed.substring(idx + 1).trim();
+            envVars[k] = v;
+          }
+        }
+      });
+    }
+
     try {
       const res = await fetch(`${API_BASE}/api/apps/deploy`, {
         method: 'POST',
@@ -267,18 +344,23 @@ export default function App() {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify({ repoUrl, name: appName || 'Vercel App' })
+        body: JSON.stringify({
+          repoUrl,
+          name: appName || 'Vercel App',
+          envVars
+        })
       });
 
       const data = await res.json();
       if (res.ok) {
         setDeployFeedback({
           type: 'success',
-          message: `Deployment completed! App ID: ${data.app?.id || data.appId || 'New App'}`,
-          url: data.url
+          message: `Deployment completed! Assigned domain: ${data.domain || data.app?.id}`,
+          url: data.domainUrl || data.url
         });
         setRepoUrl('');
         setAppName('');
+        setEnvVarsText('');
         fetchDashboardData();
       } else {
         setDeployFeedback({
@@ -295,6 +377,7 @@ export default function App() {
       setIsDeploying(false);
     }
   };
+
 
   const loadSamplePreset = () => {
     setRepoUrl('local://sample-app');
@@ -559,56 +642,67 @@ export default function App() {
         {activeTab === 'overview' && (
           <div className="space-y-6">
             {/* Top Metric Strip */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              <div className="bg-[#0a0a0a] border border-[#222222] rounded-lg p-4">
-                <div className="text-[11px] font-medium text-neutral-400 uppercase tracking-wider">
-                  Total Projects
-                </div>
-                <div className="text-2xl font-bold font-mono text-white mt-1">
-                  {apps.length}
-                </div>
-                <div className="text-[11px] text-neutral-500 mt-1 flex items-center gap-1">
-                  <span className="text-emerald-400 font-medium">● 100%</span> running containers
-                </div>
-              </div>
+            {(() => {
+              const runningAppsCount = apps.filter((a: any) => a.status === 'running').length;
+              const runningAppsPct = apps.length > 0 ? Math.round((runningAppsCount / apps.length) * 100) : 0;
+              const detectedThreatTypes = Object.keys(stats.blocksByType || {});
+              const threatTypeSummary = detectedThreatTypes.length > 0
+                ? detectedThreatTypes.join(', ')
+                : 'No threats recorded';
 
-              <div className="bg-[#0a0a0a] border border-[#222222] rounded-lg p-4">
-                <div className="text-[11px] font-medium text-neutral-400 uppercase tracking-wider">
-                  Requests Scored
-                </div>
-                <div className="text-2xl font-bold font-mono text-white mt-1">
-                  {stats.totalScored || 0}
-                </div>
-                <div className="text-[11px] text-neutral-500 mt-1 flex items-center gap-1">
-                  <span className="text-cyan-400 font-medium">● ML Gateway</span> synchronous inspection
-                </div>
-              </div>
+              return (
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  <div className="bg-[#0a0a0a] border border-[#222222] rounded-lg p-4">
+                    <div className="text-[11px] font-medium text-neutral-400 uppercase tracking-wider">
+                      Total Projects
+                    </div>
+                    <div className="text-2xl font-bold font-mono text-white mt-1">
+                      {apps.length}
+                    </div>
+                    <div className="text-[11px] text-neutral-500 mt-1 flex items-center gap-1">
+                      <span className="text-emerald-400 font-medium">● {runningAppsPct}%</span> {runningAppsCount}/{apps.length} running
+                    </div>
+                  </div>
 
-              <div className="bg-[#0a0a0a] border border-[#222222] rounded-lg p-4">
-                <div className="text-[11px] font-medium text-neutral-400 uppercase tracking-wider">
-                  Threats Neutralized
-                </div>
-                <div className="text-2xl font-bold font-mono text-red-400 mt-1">
-                  {stats.totalBlocked || 0}
-                </div>
-                <div className="text-[11px] text-neutral-500 mt-1">
-                  SQLi, XSS, Command Injections
-                </div>
-              </div>
+                  <div className="bg-[#0a0a0a] border border-[#222222] rounded-lg p-4">
+                    <div className="text-[11px] font-medium text-neutral-400 uppercase tracking-wider">
+                      Requests Scored
+                    </div>
+                    <div className="text-2xl font-bold font-mono text-white mt-1">
+                      {stats.totalScored ?? 0}
+                    </div>
+                    <div className="text-[11px] text-neutral-500 mt-1 flex items-center gap-1">
+                      <span className="text-cyan-400 font-medium">● ML Gateway</span> synchronous inspection
+                    </div>
+                  </div>
 
-              <div className="bg-[#0a0a0a] border border-[#222222] rounded-lg p-4">
-                <div className="text-[11px] font-medium text-neutral-400 uppercase tracking-wider">
-                  Protection Strictness
+                  <div className="bg-[#0a0a0a] border border-[#222222] rounded-lg p-4">
+                    <div className="text-[11px] font-medium text-neutral-400 uppercase tracking-wider">
+                      Threats Neutralized
+                    </div>
+                    <div className="text-2xl font-bold font-mono text-red-400 mt-1">
+                      {stats.totalBlocked || 0}
+                    </div>
+                    <div className="text-[11px] text-neutral-500 mt-1 truncate" title={threatTypeSummary}>
+                      {threatTypeSummary}
+                    </div>
+                  </div>
+
+                  <div className="bg-[#0a0a0a] border border-[#222222] rounded-lg p-4">
+                    <div className="text-[11px] font-medium text-neutral-400 uppercase tracking-wider">
+                      Protection Strictness
+                    </div>
+                    <div className="text-2xl font-bold font-mono text-neutral-200 mt-1">
+                      {(sensitivity * 100).toFixed(0)}%
+                    </div>
+                    <div className="text-[11px] text-emerald-400 mt-1 flex items-center gap-1">
+                      <CheckCircle2 className="w-3 h-3" />
+                      RandomForest Classifier
+                    </div>
+                  </div>
                 </div>
-                <div className="text-2xl font-bold font-mono text-neutral-200 mt-1">
-                  {(sensitivity * 100).toFixed(0)}%
-                </div>
-                <div className="text-[11px] text-emerald-400 mt-1 flex items-center gap-1">
-                  <CheckCircle2 className="w-3 h-3" />
-                  RandomForest + IsolationForest
-                </div>
-              </div>
-            </div>
+              );
+            })()}
 
             {/* Actions Bar: Search, Filter, Add New Project */}
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-2">
@@ -624,6 +718,16 @@ export default function App() {
               </div>
 
               <div className="flex items-center gap-2">
+                {apps.length > 0 && (
+                  <button
+                    onClick={handleClearAllApps}
+                    className="px-3 py-1.5 border border-red-900/40 hover:border-red-700 bg-red-950/20 hover:bg-red-950/50 text-red-400 font-medium rounded-md text-xs transition duration-150 flex items-center gap-1.5 cursor-pointer"
+                    title="Delete all projects and containers"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Clear All</span>
+                  </button>
+                )}
                 <button
                   onClick={() => setIsDeployModalOpen(true)}
                   className="px-3.5 py-1.5 bg-white text-black hover:bg-neutral-200 font-medium rounded-md text-xs transition duration-150 flex items-center gap-1.5 shadow-sm cursor-pointer"
@@ -655,13 +759,17 @@ export default function App() {
                 </div>
               ) : (
                 filteredApps.map((app) => {
+                  const slug = (app.name || app.id).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || app.id;
+                  const domain = `${slug}.localhost:8081`;
+                  const domainUrl = `http://${domain}/`;
                   const gatewayDomain = `${GATEWAY_BASE}/apps/${app.id}/`;
+
                   return (
                     <div
                       key={app.id}
                       className="bg-[#0a0a0a] border border-[#222222] hover:border-[#404040] rounded-xl p-5 flex flex-col justify-between transition-all duration-150 group shadow-sm"
                     >
-                      {/* Top row: Name + Badge */}
+                      {/* Top row: Name + Badge + Delete */}
                       <div>
                         <div className="flex items-start justify-between gap-2">
                           <div className="flex items-center gap-2.5">
@@ -676,24 +784,52 @@ export default function App() {
                             </div>
                           </div>
 
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-mono bg-emerald-950/40 border border-emerald-800/40 text-emerald-400 font-medium">
-                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                            Production
-                          </span>
+                          <div className="flex items-center gap-1.5">
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-mono bg-emerald-950/40 border border-emerald-800/40 text-emerald-400 font-medium">
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                              Production
+                            </span>
+                            <button
+                              onClick={() => handleDeleteApp(app.id, app.name)}
+                              className="text-neutral-500 hover:text-red-400 transition p-1 rounded hover:bg-red-950/30 cursor-pointer"
+                              title="Delete project and terminate container"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
                         </div>
 
-                        {/* Domain Links */}
-                        <div className="mt-4 pt-3 border-t border-[#1a1a1a] flex flex-col gap-1.5">
+                        {/* Vercel-style Domain Link */}
+                        <div className="mt-4 pt-3 border-t border-[#1a1a1a] flex flex-col gap-2">
+                          <div className="flex items-center justify-between">
+                            <span className="text-[10px] uppercase font-mono text-neutral-500 tracking-wider">Domain</span>
+                            <span className="text-[9px] font-mono text-emerald-400 bg-emerald-950/50 border border-emerald-800/40 px-1.5 py-0.2 rounded">Vercel-style</span>
+                          </div>
+
+                          <a
+                            href={domainUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="text-xs font-mono text-neutral-200 hover:text-white flex items-center justify-between p-2 rounded-lg bg-[#111111] border border-[#222222] hover:border-neutral-500 transition group/link"
+                            title={`Open on dedicated domain: ${domainUrl}`}
+                          >
+                            <div className="flex items-center gap-1.5 truncate">
+                              <Globe className="w-3.5 h-3.5 shrink-0 text-emerald-400" />
+                              <span className="truncate text-emerald-300 font-semibold">{domain}</span>
+                            </div>
+                            <ArrowUpRight className="w-3.5 h-3.5 shrink-0 text-neutral-400 group-hover/link:text-white" />
+                          </a>
+
                           <a
                             href={gatewayDomain}
                             target="_blank"
                             rel="noreferrer"
-                            className="text-xs font-mono text-neutral-400 hover:text-white flex items-center gap-1.5 transition truncate"
-                            title="Protected through DeployShield ML Gateway"
+                            className="text-[11px] font-mono text-neutral-500 hover:text-neutral-300 flex items-center gap-1.5 transition truncate pl-1"
+                            title="Protected Gateway path"
                           >
-                            <span className="text-emerald-400 text-[10px] font-bold">WAF</span>
-                            <span>/apps/{app.id}/</span>
-                            <ArrowUpRight className="w-3 h-3 shrink-0 text-neutral-500 group-hover:text-white" />
+                            <span className="text-emerald-400 text-[9px] font-bold">WAF</span>
+                            <span className="truncate">/apps/{app.id}/</span>
+                            <ArrowUpRight className="w-2.5 h-2.5 shrink-0 text-neutral-600" />
                           </a>
                         </div>
                       </div>
@@ -721,6 +857,7 @@ export default function App() {
             </div>
           </div>
         )}
+
 
         {/* =================================================================== */}
         {/* TAB 2: DEPLOYMENTS */}
@@ -819,7 +956,7 @@ export default function App() {
                 </h2>
                 <p className="text-xs text-neutral-400 mt-2 leading-relaxed">
                   Every incoming HTTP request is intercepted synchronously by the gateway reverse proxy,
-                  scored by our trained Random Forest & Isolation Forest ML classifiers, and blocked or forwarded
+                  scored by our trained Random Forest ML classifier, and blocked or forwarded
                   <em> before</em> it ever touches your app container.
                 </p>
               </div>
@@ -1347,6 +1484,23 @@ export default function App() {
                   <option value="static">Static HTML / React</option>
                 </select>
               </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-xs font-medium text-neutral-300">
+                    Environment Variables (Optional)
+                  </label>
+                  <span className="text-[10px] text-neutral-500 font-mono">KEY=VALUE (one per line)</span>
+                </div>
+                <textarea
+                  placeholder="MONGODB_URI=mongodb+srv://...&#10;JWT_SECRET=secret&#10;PORT=3000"
+                  value={envVarsText}
+                  onChange={(e) => setEnvVarsText(e.target.value)}
+                  rows={3}
+                  className="w-full px-3 py-2 bg-[#111111] border border-[#262626] rounded-md text-xs font-mono text-white placeholder-neutral-600 focus:outline-none focus:border-neutral-400 resize-none"
+                />
+              </div>
+
 
               {deployFeedback && (
                 <div

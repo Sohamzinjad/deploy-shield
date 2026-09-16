@@ -22,6 +22,7 @@ export interface BuildRequest {
   repoUrl: string;
   appId: string;
   name?: string;
+  envVars?: Record<string, string>;
 }
 
 function validateRepositoryUrl(repoUrl: string): void {
@@ -171,11 +172,24 @@ CMD ["serve", "-s", "dist", "-l", "3000"]
 
     // Step 5: Run Docker Container attached to DeployShield bridge network
     console.log(`[Build] Launching container ${containerName} on network ${DOCKER_NETWORK}...`);
-    await run('docker', ['run', '-d', '--name', containerName, '--network', DOCKER_NETWORK, imageName]);
+    const runArgs = ['run', '-d', '--name', containerName, '--network', DOCKER_NETWORK];
+    if (req.body.envVars && typeof req.body.envVars === 'object') {
+      for (const [k, v] of Object.entries(req.body.envVars)) {
+        if (k && typeof v === 'string') {
+          runArgs.push('-e', `${k}=${v}`);
+        }
+      }
+    }
+    runArgs.push(imageName);
+    await run('docker', runArgs);
+
+    // Wait 2.5s for process startup before evaluating container health
+    await new Promise((resolve) => setTimeout(resolve, 2500));
 
     const { stdout: running } = await run('docker', ['inspect', '--format', '{{.State.Running}}', containerName]);
     if (running.trim() !== 'true') {
-      throw new Error('Container exited immediately after startup. Check its logs or add a Dockerfile with the correct start command.');
+      const { stdout: exitLogs } = await run('docker', ['logs', '--tail', '30', containerName]).catch(() => ({ stdout: '' }));
+      throw new Error(`Container exited immediately after startup: ${exitLogs.trim() || 'Process crashed without output'}`);
     }
 
     // Step 6: Register container endpoint with api-server
@@ -214,6 +228,25 @@ CMD ["serve", "-s", "dist", "-l", "3000"]
     });
   }
 });
+
+// DELETE /containers/:appId - Stop and remove container
+app.delete('/containers/:appId', async (req: Request, res: Response) => {
+  const { appId } = req.params;
+  const containerName = `deployshield-app-${appId}`;
+  const buildDir = `/tmp/builds/${appId}`;
+  try {
+    await run('docker', ['rm', '-f', containerName]).catch(() => {});
+    if (fs.existsSync(buildDir)) {
+      fs.rmSync(buildDir, { recursive: true, force: true });
+    }
+    console.log(`[Build Service] Container and build artifacts removed for ${appId}`);
+    res.json({ success: true, message: `Container ${containerName} deleted` });
+  } catch (err: any) {
+    console.error(`[Build Service] Error deleting container for ${appId}:`, err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 
 if (require.main === module) {
   app.listen(PORT, () => {
