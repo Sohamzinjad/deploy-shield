@@ -44,7 +44,7 @@ DeployShield is a lightweight application deployment gateway with an integrated 
 1. **Client Request**: An incoming HTTP request arrives at the Gateway (`http://localhost:8000/apps/:appId/*`).
 2. **ML Classification**: Prior to proxying the request, the Gateway extracts request metadata (`method`, `url`, `headers`, `body`) and calls `POST http://ml-service:8000/classify` on the `ml-service`.
 3. **Verdict Evaluation**:
-   - **Malicious**: If `is_malicious` is `true` (confidence score >= 0.8 threshold), the Gateway aborts proxying, returns an HTTP `403 Forbidden` response to the client, and posts the security violation log to `api-server` (`POST /api/logs`).
+   - **Malicious**: If `is_malicious` is `true` (and confidence >= the calibrated threshold, default `0.30` from `ml-service/threshold_sweep.py`, runtime-adjustable via `POST /config`), the Gateway aborts proxying, returns an HTTP `403 Forbidden` response to the client, and posts the security violation log to `api-server` (`POST /api/logs`).
    - **Benign**: If `is_malicious` is `false`, the Gateway queries `api-server` for the target container address of `:appId` and proxies the request to the container.
 4. **Deploy Lifecycle**:
    - `build-service`: Accepts git URLs (or local template paths), clones the code, builds Docker container images locally, runs container instances on `deployshield-net`, and registers the container endpoints with `api-server`.
@@ -112,8 +112,8 @@ Every request classified by `ml-service` is timed inside the gateway using `Date
 
 ```
 GET /api/stats
-→ { "p50_ms": 4, "p95_ms": 12, "request_count": 847, "confidence_threshold": 0.55 }
+→ { "p50_ms": 32, "p95_ms": 36, "request_count": 340, "confidence_threshold": 0.3 }
 ```
 
-This answers the viva question _"what latency overhead does your inline WAF add?"_ with a measured, reproducible number rather than an estimate.
+Example values above are from a live run (340 requests against a deployed sample app, threshold 0.30): p50 = 32 ms, p95 = 36 ms. This answers the viva question _"what latency overhead does your inline WAF add?"_ with a measured, reproducible number rather than an estimate.
 
