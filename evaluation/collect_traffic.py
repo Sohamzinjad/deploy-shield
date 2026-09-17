@@ -58,7 +58,14 @@ class LabeledCapture(HTTPServer):
         super().__init__(*args, **kwargs)
 
 
-def run_sqlmap(target: str, capture_port: int):
+def clean_proxy_env():
+    """Force the recording proxy: strip no_proxy so urllib and child tools
+    (e.g. sqlmap) route through the capture server even for localhost targets."""
+    os.environ.pop('no_proxy', None)
+    os.environ.pop('NO_PROXY', None)
+
+
+def run_sqlmap(target: str, capture_port: int, env: dict | None = None):
     """Run sqlmap with a proxy pointing at our capture server."""
     proxy = f"http://127.0.0.1:{capture_port}"
     cmd = [
@@ -66,12 +73,11 @@ def run_sqlmap(target: str, capture_port: int):
         '--proxy', proxy,
         '--batch', '--level=3', '--risk=2',
         '--technique=BEUST',
-        '--output-dir=/tmp/sqlmap_out',
-        '-q'
+        '--output-dir=/tmp/sqlmap_out'
     ]
     print(f"[sqlmap] Running: {' '.join(cmd)}")
     try:
-        subprocess.run(cmd, timeout=120, capture_output=True)
+        subprocess.run(cmd, timeout=120, capture_output=True, env=env)
     except FileNotFoundError:
         print("[WARN] sqlmap not found on PATH — skipping sqlmap phase.")
     except subprocess.TimeoutExpired:
@@ -112,6 +118,10 @@ def main():
     parser.add_argument('--capture-port', type=int, default=9999)
     args = parser.parse_args()
 
+    # Ensure the recording proxy is actually used by every client below.
+    clean_proxy_env()
+    child_env = {k: v for k, v in os.environ.items()}  # stripped of no_proxy/NO_PROXY
+
     # Start capture proxy
     server = LabeledCapture(('127.0.0.1', args.capture_port), CaptureHandler)
     t = threading.Thread(target=server.serve_forever, daemon=True)
@@ -125,7 +135,7 @@ def main():
 
     # Phase 2: SQLi via sqlmap
     server.current_label = 'sqli'
-    run_sqlmap(args.target, args.capture_port)
+    run_sqlmap(args.target, args.capture_port, env=child_env)
 
     server.shutdown()
 
