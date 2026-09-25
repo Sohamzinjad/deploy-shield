@@ -67,7 +67,11 @@ export function authenticateToken(req: AuthenticatedRequest, res: Response, next
   if (isAuthOrHealth) {
     return next();
   }
-  if (isInternalServiceEndpoint) return authenticateInternalService(req, res, next);
+  if (isInternalServiceEndpoint) {
+    if (req.header('x-internal-service-token') || !req.headers['authorization']) {
+      return authenticateInternalService(req, res, next);
+    }
+  }
 
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.startsWith('Bearer ')

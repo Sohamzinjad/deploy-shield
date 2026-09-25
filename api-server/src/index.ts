@@ -52,8 +52,9 @@ app.get('/api/apps/:id', async (req: Request, res: Response) => {
 
 // Lookup app by subdomain / slug (for Vercel-style domain routing)
 app.get('/api/apps/by-domain/:domain', async (req: Request, res: Response) => {
-  const { domain } = req.params;
-  const cleanDomain = (domain || '').toLowerCase().trim();
+  const domain = req.params.domain;
+  const rawDomain = Array.isArray(domain) ? domain[0] : domain;
+  const cleanDomain = (rawDomain || '').toLowerCase().trim();
   try {
     const { rows } = await pool.query(
       `SELECT * FROM apps 

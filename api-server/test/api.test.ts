@@ -43,7 +43,9 @@ describe('DeployShield API Server Integration Tests', () => {
 
   beforeAll(() => {
     process.env.INTERNAL_SERVICE_TOKEN = 'test-internal-service-token';
-    validToken = generateToken({ username: 'admin', role: 'admin' });
+    process.env.ADMIN_USER = 'testadmin';
+    process.env.ADMIN_PASSWORD = 'testpassword123';
+    validToken = generateToken({ username: 'testadmin', role: 'admin' });
   });
 
   describe('Health Endpoint', () => {
@@ -55,32 +57,69 @@ describe('DeployShield API Server Integration Tests', () => {
   });
 
   describe('Authentication Endpoints', () => {
-    it('POST /login with valid demo credentials should return token', async () => {
+    it('POST /login with valid configured credentials should return token', async () => {
       const res = await request(app)
         .post('/login')
-        .send({ username: 'admin', password: 'password123' });
+        .send({ username: 'testadmin', password: 'testpassword123' });
 
       expect(res.status).toBe(200);
       expect(res.body.success).toBe(true);
       expect(res.body.token).toBeDefined();
     });
 
-    it('POST /api/login with valid demo credentials should return token', async () => {
+    it('POST /api/login with valid configured credentials should return token', async () => {
       const res = await request(app)
         .post('/api/login')
-        .send({ username: 'admin', password: 'password123' });
+        .send({ username: 'testadmin', password: 'testpassword123' });
 
       expect(res.status).toBe(200);
       expect(res.body.token).toBeDefined();
     });
 
-    it('POST /login with invalid credentials should return 401', async () => {
+    it('POST /login with default/unconfigured credentials should return 401', async () => {
       const res = await request(app)
         .post('/login')
-        .send({ username: 'admin', password: 'wrongpassword' });
+        .send({ username: 'admin', password: 'password123' });
 
       expect(res.status).toBe(401);
       expect(res.body.error).toMatch(/Invalid credentials/i);
+    });
+
+    it('POST /login with wrong password should return 401', async () => {
+      const res = await request(app)
+        .post('/login')
+        .send({ username: 'testadmin', password: 'wrongpassword' });
+
+      expect(res.status).toBe(401);
+      expect(res.body.error).toMatch(/Invalid credentials/i);
+    });
+
+    it('POST /login with wrong username should return 401', async () => {
+      const res = await request(app)
+        .post('/login')
+        .send({ username: 'wronguser', password: 'testpassword123' });
+
+      expect(res.status).toBe(401);
+      expect(res.body.error).toMatch(/Invalid credentials/i);
+    });
+
+    it('POST /login fails closed when credentials are not configured in environment', async () => {
+      const savedUser = process.env.ADMIN_USER;
+      const savedPass = process.env.ADMIN_PASSWORD;
+      try {
+        delete process.env.ADMIN_USER;
+        delete process.env.ADMIN_PASSWORD;
+
+        const res = await request(app)
+          .post('/login')
+          .send({ username: 'admin', password: 'password123' });
+
+        expect(res.status).toBe(401);
+        expect(res.body.error).toMatch(/Invalid credentials/i);
+      } finally {
+        process.env.ADMIN_USER = savedUser;
+        process.env.ADMIN_PASSWORD = savedPass;
+      }
     });
 
     it('POST /logout should return 200', async () => {

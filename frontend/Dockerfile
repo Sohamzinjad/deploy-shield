@@ -1,7 +1,12 @@
-FROM node:20-alpine
+FROM node:20-alpine AS build
 WORKDIR /app
 COPY package*.json ./
 RUN npm ci
 COPY . .
-EXPOSE 3000
-CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0"]
+ARG VITE_API_SERVER_URL
+ARG VITE_GATEWAY_URL
+RUN npm run build
+
+FROM caddy:2-alpine
+COPY --from=build /app/dist /usr/share/caddy
+EXPOSE 80

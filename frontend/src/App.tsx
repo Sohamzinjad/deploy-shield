@@ -67,8 +67,8 @@ export default function App() {
   const [isLoadingData, setIsLoadingData] = useState(false);
 
   // Login form state
-  const [loginUsername, setLoginUsername] = useState('admin');
-  const [loginPassword, setLoginPassword] = useState('password123');
+  const [loginUsername, setLoginUsername] = useState('');
+  const [loginPassword, setLoginPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loginError, setLoginError] = useState(null);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
@@ -443,7 +443,7 @@ export default function App() {
                     type="text"
                     value={loginUsername}
                     onChange={(e) => setLoginUsername(e.target.value)}
-                    placeholder="admin"
+                    placeholder="admin username"
                     required
                     className="w-full pl-9 pr-3 py-2 bg-[#111111] border border-[#262626] rounded-md text-xs text-white placeholder-neutral-600 focus:outline-none focus:border-neutral-400 focus:ring-1 focus:ring-neutral-400 transition"
                   />
@@ -495,20 +495,6 @@ export default function App() {
                   'Continue with Credentials'
                 )}
               </button>
-
-              <div className="pt-3 border-t border-[#1f1f1f] flex items-center justify-between text-[11px] text-neutral-500">
-                <span>Demo Account:</span>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setLoginUsername('admin');
-                    setLoginPassword('password123');
-                  }}
-                  className="text-neutral-300 hover:text-white font-mono underline cursor-pointer"
-                >
-                  admin / password123
-                </button>
-              </div>
             </form>
           </div>
 

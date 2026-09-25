@@ -32,6 +32,8 @@ services:
       DATABASE_URL: ${DATABASE_URL:-postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}}
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
       INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN:?INTERNAL_SERVICE_TOKEN is required}
+      ADMIN_USER: ${ADMIN_USER:?ADMIN_USER is required}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:?ADMIN_PASSWORD is required}
       FRONTEND_ORIGIN: ${FRONTEND_ORIGIN:-http://localhost:3000}
       GATEWAY_PUBLIC_URL: ${GATEWAY_PUBLIC_URL:-http://localhost:8081}
       BUILD_SERVICE_URL: http://build-service:5001
@@ -71,11 +73,12 @@ services:
     networks: [deployshield-net]
 
   frontend:
-    build: ./frontend
-    ports: ["3000:3000"]
-    environment:
-      VITE_API_SERVER_URL: http://localhost:5003
-      VITE_GATEWAY_URL: http://localhost:8081
+    build:
+      context: ./frontend
+      args:
+        VITE_API_SERVER_URL: ${VITE_API_SERVER_URL:-http://localhost:5003}
+        VITE_GATEWAY_URL: ${VITE_GATEWAY_URL:-http://localhost:8081}
+    ports: ["3000:80"]
     depends_on:
       api-server: { condition: service_started }
     networks: [deployshield-net]

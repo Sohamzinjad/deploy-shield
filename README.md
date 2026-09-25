@@ -14,7 +14,7 @@ cp .env.example .env
 docker compose up --build
 ```
 
-Open `http://localhost:3000` and sign in with `admin` / `password123` (development-only demo credentials; set `ADMIN_USER` and `ADMIN_PASSWORD` for a different local account). The public endpoints are the dashboard (3000), API (5003), and protected gateway (8081). The database, classifier, and Docker-socket build service stay on the internal Docker network.
+Open `http://localhost:3000` and sign in with the `ADMIN_USER` and `ADMIN_PASSWORD` configured in your `.env` file. The public endpoints are the dashboard (3000), API (5003), and protected gateway (8081). The database, classifier, and Docker-socket build service stay on the internal Docker network.
 
 ## Request flow
 
